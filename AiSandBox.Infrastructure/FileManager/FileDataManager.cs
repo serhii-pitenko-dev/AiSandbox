@@ -39,7 +39,7 @@ public class FileDataManager<T>: IFileDataManager<T>
             DefaultIgnoreCondition = JsonIgnoreCondition.Never,
             Converters = 
             { 
-                new TwoDimensionalArrayConverter<SandboxBaseObject>(),
+                new TwoDimensionalArrayConverter<SandboxMapBaseObject>(),
                 new TwoDimensionalArrayConverter<Cell>()
             }
         };

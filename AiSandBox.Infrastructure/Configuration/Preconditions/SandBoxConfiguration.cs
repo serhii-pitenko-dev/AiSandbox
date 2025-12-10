@@ -8,4 +8,5 @@ public class SandBoxConfiguration
     public int TurnTimeout { get; set; }
     public int MaxTurns { get; set; }
     public int SaveToFileRegularity { get; set; }
+    public bool IsDebugMode { get; set; }
 }

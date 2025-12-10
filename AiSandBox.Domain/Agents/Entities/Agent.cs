@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace AiSandBox.Domain.Agents.Entities;
 
-public abstract class Agent: SandboxBaseObject
+public abstract class Agent: SandboxMapBaseObject
 {
     // Parameterless constructor for deserialization
     protected Agent() : base()
@@ -14,10 +14,10 @@ public abstract class Agent: SandboxBaseObject
     [JsonInclude]
     public List<Cell> VisibleCells { get; protected set; } = new();
     public Agent(
-        ECellType cellType,
+        EObjectType cellType,
         InitialAgentCharacters characters,
-        Coordinates coordinates, 
-        Guid id) : base(cellType, coordinates, id)
+        Cell cell, 
+        Guid id) : base(cellType, cell, id)
     {
         Speed = characters.Speed;
         SightRange = characters.SightRange;
@@ -47,14 +47,14 @@ public abstract class Agent: SandboxBaseObject
 
     protected void CopyBaseTo(Agent target)
     {
+        base.CopyTo(target);
         target.Speed = Speed;
         target.SightRange = SightRange;
         target.IsRun = IsRun;
         target.Stamina = Stamina;
         target.MaxStamina = MaxStamina;
         target.PathToTarget = [.. PathToTarget];
-        target.Coordinates = Coordinates;
-        //target.VisibleCells should be recalculated each turn, so no need to copy
+        target.VisibleCells = [.. VisibleCells];
         target.Transparent = Transparent;
     }
 
@@ -68,34 +68,13 @@ public abstract class Agent: SandboxBaseObject
         PathToTarget.AddRange(coordinates);
     }
 
-    public virtual void Move(Coordinates goTo)
+    public virtual void ActivateAbilities(EAction[] abilities)
     {
-        Coordinates = goTo;
-        PathToTarget.Add(goTo);
-        if (IsRun)
-        {
-            Stamina = Math.Max(0, Stamina - 1);
-            if (Stamina == 0)
-            {
-                DeActivateAbility([EAbility.Run]);
-            }
-        }
-        else
-        {
-            if (Stamina < MaxStamina)
-            {
-                Stamina += 1;
-            }
-        }
-    }
-
-    public virtual void ActivateAbilities(EAbility[] abilities)
-    {
-        foreach (EAbility ability in abilities)
+        foreach (EAction ability in abilities)
         {
             switch (ability)
             {
-                case EAbility.Run:
+                case EAction.Run:
                     if (IsRun)
                         break;
 
@@ -107,13 +86,13 @@ public abstract class Agent: SandboxBaseObject
         }
     }
 
-    public virtual void DeActivateAbility(EAbility[] abilities)
+    public virtual void DeActivateAbility(EAction[] abilities)
     {
-        foreach (EAbility ability in abilities)
+        foreach (EAction ability in abilities)
         {
             switch (ability)
             {
-                case EAbility.Run:
+                case EAction.Run:
                     if (!IsRun)
                         break;
 

@@ -7,6 +7,9 @@ using AiSandBox.Domain.Statistics.Entities;
 using AiSandBox.Infrastructure.Configuration.Preconditions;
 using AiSandBox.Infrastructure.FileManager;
 using AiSandBox.Infrastructure.MemoryManager;
+using AiSandBox.SharedBaseTypes.GlobalEvents;
+using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
+using AiSandBox.SharedBaseTypes.GlobalEvents.GameStateEvents;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 using Microsoft.Extensions.Options;
 
@@ -26,8 +29,10 @@ public class Executor : IExecutor
 
     public int Turn { get; private set; } = 0;
     public event Action<Guid>? GameStarted;
+    public event Action<Guid>? MapObjectChanged;
     public event Action<Guid>? TurnExecuted;
     public event Action<Guid, ESandboxStatus>? ExecutionFinished;
+    public event Action<Guid, GlobalEvent>? OnGlobalEvent;
 
     public Executor(
         IPlaygroundCommandsHandleService mapCommands,
@@ -63,8 +68,9 @@ public class Executor : IExecutor
         OnGameStarted(playground);
 
         // Subscribe to game end events
-        _aiActions.LostGame += OnGameLost;
-        _aiActions.WinGame += OnGameWon;
+        _aiActions.OnGameLost += OnGameLost;
+        _aiActions.OnGameWin += OnGameWon;
+        _aiActions.OnAgentAction += OnAgentActionEvent;
 
         // 2. Endless cycle with turn-based execution
         while (sandboxStatus == ESandboxStatus.InProgress && playground.Turn < _configuration.MaxTurns)
@@ -92,8 +98,8 @@ public class Executor : IExecutor
         }
 
         // Cleanup
-        _aiActions.LostGame -= OnGameLost;
-        _aiActions.WinGame -= OnGameWon;
+        _aiActions.OnGameLost -= OnGameLost;
+        _aiActions.OnGameWin -= OnGameWon;
     }
 
     private void ExecuteTurn(StandardPlayground playground)
@@ -104,6 +110,8 @@ public class Executor : IExecutor
         if (heroPath.Count > 0 && sandboxStatus == ESandboxStatus.InProgress)
             playground.MoveObjectOnMap(playground.Hero.Coordinates, heroPath);
 
+        MapObjectChanged.Invoke(playground.Hero.Id);
+
         // Execute enemy actions with playground ID
         foreach (var enemy in playground.Enemies.OrderBy(e => e.OrderInTurnQueue))
         {
@@ -111,29 +119,31 @@ public class Executor : IExecutor
             List<Coordinates> enemyPath = _aiActions.Action(enemy, playground.Id);
             if (enemyPath.Count > 0)
                 playground.MoveObjectOnMap(enemy.Coordinates, enemyPath);
+
+            MapObjectChanged.Invoke(enemy.Id);
         }
 
         playground.LookAroundEveryone();
     }
 
-    private void OnGameLost(Guid playgroundId)
+    private void OnGameLost(GameLostEvent gameLostEvent)
     {
         // Check if the event is for the current playground
-        if (playgroundId == _sandboxId)
+        if (gameLostEvent.PlaygroundId == _sandboxId)
         {
             sandboxStatus = ESandboxStatus.HeroLost;
             // Fix: Use null-conditional operator and direct invocation instead of EndInvoke
-            ExecutionFinished?.Invoke(playgroundId, ESandboxStatus.HeroLost);
+            ExecutionFinished?.Invoke(gameLostEvent.PlaygroundId, ESandboxStatus.HeroLost);
         }
     }
 
-    private void OnGameWon(Guid playgroundId)
+    private void OnGameWon(GameWonEvent gameWonEvent)
     {
         // Check if the event is for the current playground
-        if (playgroundId == _sandboxId)
+        if (gameWonEvent.PlaygroundId == _sandboxId)
         {
             sandboxStatus = ESandboxStatus.HeroWon;
-            ExecutionFinished?.Invoke(_sandboxId, ESandboxStatus.HeroWon);
+            ExecutionFinished?.Invoke(gameWonEvent.PlaygroundId, ESandboxStatus.HeroWon);
         }
     }
 
@@ -177,5 +187,10 @@ public class Executor : IExecutor
         Save(playground);
         Turn++;
         TurnExecuted?.Invoke(playground.Id);
+    }
+
+    protected virtual void OnAgentActionEvent(BaseAgentActionEvent actionEvent)
+    {
+        OnGlobalEvent?.Invoke(_sandboxId, actionEvent);
     }
 }

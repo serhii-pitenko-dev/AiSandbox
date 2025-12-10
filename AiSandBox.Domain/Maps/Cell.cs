@@ -1,12 +1,14 @@
 ﻿using AiSandBox.SharedBaseTypes.ValueObjects;
+using System.Text.Json.Serialization;
 
 namespace AiSandBox.Domain.Maps;
 
 public class Cell
 {
+    [JsonInclude]
     public Coordinates Coordinates { get; init; }
-    public bool IsHeroSight { get; internal set; }
-    public bool IsEnemySight { get; internal set; }
-    public SandboxBaseObject Object { get; internal set; }
+
+    [JsonIgnore]
+    public SandboxMapBaseObject Object { get; internal set; }
 }
 

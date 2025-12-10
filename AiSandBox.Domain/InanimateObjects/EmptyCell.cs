@@ -1,10 +1,11 @@
-﻿using AiSandBox.SharedBaseTypes.ValueObjects;
+﻿using AiSandBox.Domain.Maps;
+using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Domain.InanimateObjects;
 
-public class EmptyCell : SandboxBaseObject
+public class EmptyCell : SandboxMapBaseObject
 {
-    public EmptyCell(Coordinates coordinates, Guid id) : base(ECellType.Empty, coordinates, id) 
+    public EmptyCell(Cell cell, Guid id) : base(EObjectType.Empty, cell, id) 
     { 
         Transparent = true;
     }

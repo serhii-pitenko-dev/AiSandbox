@@ -14,7 +14,7 @@ public class PlaygroundStatisticsConverter
             var result = InitializeStatistics(playground);
 
             var heroIndex = Array.FindIndex(result.AgentsStatistics, 
-                e => e.CellType == SharedBaseTypes.ValueObjects.ECellType.Hero);
+                e => e.CellType == SharedBaseTypes.ValueObjects.EObjectType.Hero);
 
             var hero = result.AgentsStatistics[heroIndex];
             result.AgentsStatistics[heroIndex] = hero with 

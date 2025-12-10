@@ -24,4 +24,10 @@ public class GetMapLayoutHandle(
 
         return playground.ToMapLayout();
     }
+
+    public MapLayoutResponse GetObjectAffectedCellsFromMemory(Guid playgroundId, Guid objectId)
+    {
+        StandardPlayground playground = MemoryDataManager.LoadObject(playgroundId);
+        return playground.GetObjectAffectedCells(objectId);
+    }
 }

@@ -1,46 +1,53 @@
 ﻿using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Maps;
+using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
+using AiSandBox.SharedBaseTypes.GlobalEvents.GameStateEvents;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Ai.AgentActions;
 
-public class RandomActions : IAiActions
+public abstract class RandomActions : IAiActions
 {
     private readonly Random _random = new();
-    
-    public event Action<Guid>? LostGame;
-
-    public event Action<Guid>? WinGame;
+    public event Action<BaseAgentActionEvent>? OnAgentAction;
+    public event Action<GameLostEvent>? OnGameLost;
+    public event Action<GameWonEvent>? OnGameWin;
 
     public List<Coordinates> Action(Agent agent, Guid playgroundId)
     {
         // Calculate the path without modifying the agent
         List<Coordinates> path = CalculatePath(agent, playgroundId);
-        
+         
         // Randomly decide whether to use abilities (without actually applying them)
         if (_random.NextDouble() < 0.5) // 50% chance
         {
-            UseAbilities(agent, Enum.GetValues<EAbility>());
+            UseAbilities(agent, Enum.GetValues<EAction>());
         }
         
         return path;
     }
 
-    public void Move(Agent agent, Guid playgroundId)
-    {
-        // This method kept for interface compatibility but not used in new logic
-        // You can remove this if you update the interface to not require it
-    }
-
-    public void UseAbilities(Agent agent, EAbility[] abilities)
+    public void UseAbilities(Agent agent, EAction[] abilities)
     {
         if (_random.NextDouble() < 0.1) // 10% chance
         {
             agent.ActivateAbilities(abilities);
+            
+            // No conditional check - delegate handles it
+            foreach (var ability in abilities)
+            {
+                ApplyAgentActionEvent(agent.Id, true, ability);
+            }
         }
         if (_random.NextDouble() < 0.1) // 10% chance
         {
             agent.DeActivateAbility(abilities);
+            
+            // No conditional check - delegate handles it
+            foreach (var ability in abilities)
+            {
+                ApplyAgentActionEvent(agent.Id, false, ability);
+            }
         }
     }
 
@@ -63,6 +70,7 @@ public class RandomActions : IAiActions
             
             if (nextCoordinate.HasValue)
             {
+                ApplyAgentMoveActionEvent(agent.Id, currentPosition, nextCoordinate.Value);
                 path.Add(nextCoordinate.Value);
                 currentPosition = nextCoordinate.Value;
             }
@@ -112,17 +120,17 @@ public class RandomActions : IAiActions
         shouldStop = false;
 
         // Hero: if block, don't move; if enemy, invoke LostGame; if exit, invoke WinGame
-        if (targetCell.Object.Type == ECellType.Block)
+        if (targetCell.Object.Type == EObjectType.Block)
         {
             return null; // Invalid move, don't add to path
         }
-        else if (targetCell.Object.Type == ECellType.Enemy)
+        else if (targetCell.Object.Type == EObjectType.Enemy)
         {
             OnLostGame(playgroundId);
             shouldStop = true;
             return null; // Stop calculating path after game loss
         }
-        else if (targetCell.Object.Type == ECellType.Exit)
+        else if (targetCell.Object.Type == EObjectType.Exit)
         {
             OnWinGame(playgroundId);
             shouldStop = true;
@@ -140,13 +148,13 @@ public class RandomActions : IAiActions
         shouldStop = false;
 
         // Enemy: if block, enemy, or exit, don't move; if hero, invoke LostGame
-        if (targetCell.Object.Type == ECellType.Block || 
-            targetCell.Object.Type == ECellType.Enemy || 
-            targetCell.Object.Type == ECellType.Exit)
+        if (targetCell.Object.Type == EObjectType.Block || 
+            targetCell.Object.Type == EObjectType.Enemy || 
+            targetCell.Object.Type == EObjectType.Exit)
         {
             return null; // Invalid move, don't add to path
         }
-        else if (targetCell.Object.Type == ECellType.Hero)
+        else if (targetCell.Object.Type == EObjectType.Hero)
         {
             OnLostGame(playgroundId);
             shouldStop = true;
@@ -159,13 +167,26 @@ public class RandomActions : IAiActions
         }
     }
 
+    protected void RaiseAgentAction(AgentActionEvent eventArgs)
+    {
+        OnAgentAction?.Invoke(eventArgs);
+    }
+
+    protected void RaiseAgentMoveAction(AgentMoveActionEvent eventArgs)
+    {
+        OnAgentAction?.Invoke(eventArgs);
+    }
+
+    protected abstract void ApplyAgentActionEvent(Guid agentId, bool isActivated, EAction action);
+    protected abstract void ApplyAgentMoveActionEvent(Guid agentId, Coordinates from, Coordinates to);
+
     protected virtual void OnLostGame(Guid playgroundId)
     {
-        LostGame?.Invoke(playgroundId);
+        OnGameLost?.Invoke(new GameLostEvent(playgroundId));
     }
 
     protected virtual void OnWinGame(Guid playgroundId)
     {
-        WinGame?.Invoke(playgroundId);
+        OnGameWin?.Invoke(new GameWonEvent(playgroundId));
     }
 }

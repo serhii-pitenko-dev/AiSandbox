@@ -24,11 +24,13 @@ public class MapSquareCells
         {
             for (int y = 0; y < Height; y++)
             {
-                _cellGrid[x, y] = new Cell
+                Cell newCell = new Cell()
                 {
                     Coordinates = new Coordinates(x, y),
-                    Object = new EmptyCell(new Coordinates(x, y), Guid.NewGuid())
                 };
+                EmptyCell emptyCell = new EmptyCell(newCell, Guid.NewGuid());
+                newCell.Object = emptyCell;
+                _cellGrid[x, y] = newCell;
             }
         }
     }
@@ -38,24 +40,23 @@ public class MapSquareCells
         Coordinates to = path.Last();
         Cell initialCell = _cellGrid[from.X, from.Y];
         Cell targetCell = _cellGrid[to.X, to.Y];
-        if (initialCell.Object.Type == ECellType.Empty)
+        if (initialCell.Object.Type == EObjectType.Empty)
         {
             throw new InvalidOperationException("No object to move at the source coordinates.");
         }
-        if (targetCell.Object.Type != ECellType.Empty)
+        if (targetCell.Object.Type != EObjectType.Empty)
         {
             throw new InvalidOperationException("Target cell is already occupied.");
         }
 
         // Move the object
         targetCell.Object = initialCell.Object;
-        targetCell.Object.UpdateCoordinates(targetCell.Coordinates);
         if (targetCell.Object is Agent agent)
         {
             agent.AddToPath(path);
         }
 
-        initialCell.Object = new EmptyCell(initialCell.Coordinates, Guid.NewGuid());
+        initialCell.Object = new EmptyCell(initialCell, Guid.NewGuid());
     }
 
     internal Cell[,] CutOutPartOfTheMap(Coordinates point, int radius)
@@ -85,10 +86,10 @@ public class MapSquareCells
         return result;
     }
 
-    internal void PlaceObject(SandboxBaseObject obj)
+    internal void PlaceObject(SandboxMapBaseObject obj)
     {
         Cell targetCell = _cellGrid[obj.Coordinates.X, obj.Coordinates.Y];
-        if (targetCell.Object.Type != ECellType.Empty)
+        if (targetCell.Object.Type != EObjectType.Empty)
         {
             throw new InvalidOperationException("Target cell is already occupied.");
         }

@@ -18,6 +18,7 @@ public class StandardPlayground
     public int MapWidth => _map.Width;
     public int MapHeight => _map.Height;
     public int MapArea => _map.Area;
+    public bool IsDebugMode { get; set; } = false;
 
     private readonly IVisibilityService _visibilityService;
     private readonly List<Block> _blocks = [];
@@ -64,7 +65,6 @@ public class StandardPlayground
     {
         _enemies.Add(enemy);
         _map.PlaceObject(enemy);
-
     }
 
     public void PlaceExit(Exit exit)

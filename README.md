@@ -1,6 +1,5 @@
 ﻿Map
 In the domain map coordinates X and Y started from 0 at the bottom-left corner.
-MapLayoutResponse returns coordinates where Y starts from 0 at the top-left corner. 
 For calculating console map coordinates Y should be reverted.
 Example for 5x5 map:
 ```

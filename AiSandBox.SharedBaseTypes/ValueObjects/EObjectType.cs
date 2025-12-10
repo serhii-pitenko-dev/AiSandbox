@@ -1,6 +1,6 @@
 ﻿namespace AiSandBox.SharedBaseTypes.ValueObjects;
 
-public enum ECellType
+public enum EObjectType
 {
     Empty,
     Block,

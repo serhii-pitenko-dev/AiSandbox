@@ -10,19 +10,6 @@ public class VisibilityService : IVisibilityService
 {
     public void UpdateVisibleCells(Agent agent, StandardPlayground playground)
     {
-        // Clear previous sight flags for this agent
-        foreach (var previouslyVisibleCell in agent.VisibleCells)
-        {
-            if (agent.Type == ECellType.Hero)
-            {
-                previouslyVisibleCell.IsHeroSight = false;
-            }
-            else if (agent.Type == ECellType.Enemy)
-            {
-                previouslyVisibleCell.IsEnemySight = false;
-            }
-        }
-
         Cell[,] range = playground.CutMapPart(agent.Coordinates, agent.SightRange);
 
         agent.VisibleCells.Clear();
@@ -68,16 +55,6 @@ public class VisibilityService : IVisibilityService
                 {
                     // Get the actual cell from the map to persist the sight changes
                     Cell originalCell = playground.GetCell(targetCell.Coordinates);
-
-                    if (agent.Type == ECellType.Hero)
-                    {
-                        originalCell.IsHeroSight = true;
-                    }
-                    else if (agent.Type == ECellType.Enemy)
-                    {
-                        originalCell.IsEnemySight = true;
-                    }
-
                     agent.VisibleCells.Add(originalCell);
                 }
             }

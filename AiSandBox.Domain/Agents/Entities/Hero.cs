@@ -1,17 +1,18 @@
-﻿using AiSandBox.SharedBaseTypes.ValueObjects;
+﻿using AiSandBox.Domain.Maps;
+using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Domain.Agents.Entities;
 
 public class Hero : Agent
 {
-    public Hero(Coordinates coordinates,
+    public Hero(Cell cell,
         InitialAgentCharacters characters,
-        Guid id) : base(ECellType.Hero, characters, coordinates, id)
+        Guid id) : base(EObjectType.Hero, characters, cell, id)
     {
 
     }
 
-    public Hero() : base(ECellType.Hero, new InitialAgentCharacters(),  new Coordinates(0, 0), new Guid())
+    public Hero() : base(EObjectType.Hero, new InitialAgentCharacters(),  null, new Guid())
     { }
 
     public Hero Clone()

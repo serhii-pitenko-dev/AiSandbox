@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiSandBox.Ai\AiSandBox.Ai.csproj" />
+    <ProjectReference Include="..\AiSandBox.Common\AiSandBox.Common.csproj" />
     <ProjectReference Include="..\AiSandBox.Infrastructure\AiSandBox.Infrastructure.csproj" />
     <ProjectReference Include="..\AiSandBox.WebApi\AiSandBox.WebApi.csproj" />
   </ItemGroup>

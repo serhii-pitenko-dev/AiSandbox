@@ -8,8 +8,8 @@ using AiSandBox.SharedBaseTypes.ValueObjects;
 namespace AiSandBox.Domain.Playgrounds.Builders;
 
 public class PlaygroundBuilder(
-    IEnemyFactory EnemyFactory, 
-    IHeroFactory HeroFactory, 
+    IEnemyFactory EnemyFactory,
+    IHeroFactory HeroFactory,
     IVisibilityService visibilityService) : IPlaygroundBuilder
 {
     private StandardPlayground? _playground;
@@ -63,7 +63,8 @@ public class PlaygroundBuilder(
             // Check if placing a block here would create a closed area
             if (!WouldCreateClosedArea(x, y, occupiedCells))
             {
-                var block = new Block(new Coordinates(x, y), Guid.NewGuid());
+                var cell = Playground.GetCell(x, y);
+                var block = new Block(cell, Guid.NewGuid());
                 Playground.AddBlock(block);
                 occupiedCells.Add((x, y));
             }
@@ -83,11 +84,12 @@ public class PlaygroundBuilder(
             y = random.Next(0, Playground.MapHeight);
         } while (IsCellOccupied(x, y));
 
-        Playground.PlaceHero(HeroFactory.CreateHero(new Coordinates(x, y), heroCharacters));
+        var cell = Playground.GetCell(x, y);
+        Playground.PlaceHero(HeroFactory.CreateHero(cell, heroCharacters));
 
         return this;
     }
-    
+
     public IPlaygroundBuilder PlaceExit()
     {
         var random = new Random();
@@ -99,8 +101,9 @@ public class PlaygroundBuilder(
             y = random.Next(0, Playground.MapHeight);
         } while (IsCellOccupied(x, y));
 
-        Playground.PlaceExit(new Exit(new Coordinates(x, y), Guid.NewGuid()));
-        
+        var cell = Playground.GetCell(x, y);
+        Playground.PlaceExit(new Exit(cell, Guid.NewGuid()));
+
         return this;
     }
 
@@ -121,7 +124,8 @@ public class PlaygroundBuilder(
                 validPosition = !IsCellOccupied(x, y) && IsDistanceFromHeroValid(x, y);
             } while (!validPosition);
 
-            var enemy = EnemyFactory.CreateEnemy(new Coordinates(x, y), enemyCharacters);
+            var cell = Playground.GetCell(x, y);
+            var enemy = EnemyFactory.CreateEnemy(cell, enemyCharacters);
             enemy.SetOrderInTurnQueue(_enemyOrderCounter++); // Assign and increment order
 
             Playground.PlaceEnemy(enemy);
@@ -132,30 +136,34 @@ public class PlaygroundBuilder(
 
     public IPlaygroundBuilder FillCellGrid()
     {
-        for (int x = 0; x < Playground.MapHeight; x++)
+        for (int x = 0; x < Playground.MapWidth; x++)
         {
             for (int y = 0; y < Playground.MapHeight; y++)
             {
+                var cell = Playground.GetCell(x, y);
+
                 // Check for blocks
                 var block = Playground.Blocks.FirstOrDefault(b => b.Coordinates.X == x && b.Coordinates.Y == y);
                 if (block != null)
                 {
-                    Playground.GetCell(x, y).Object = block;
-
+                    cell.Object = block;
+                    block.UpdateCell(cell);
                     continue;
                 }
 
                 // Check for hero
-                if (Playground.Hero.Coordinates.X == x && Playground.Hero.Coordinates.Y == y)
+                if (Playground.Hero != null && Playground.Hero.Coordinates.X == x && Playground.Hero.Coordinates.Y == y)
                 {
-                    Playground.GetCell(x, y).Object = Playground.Hero;
+                    cell.Object = Playground.Hero;
+                    Playground.Hero.UpdateCell(cell);
                     continue;
                 }
 
                 // Check for exit
-                if (Playground.Exit.Coordinates.X == x && Playground.Exit.Coordinates.Y == y)
+                if (Playground.Exit != null && Playground.Exit.Coordinates.X == x && Playground.Exit.Coordinates.Y == y)
                 {
-                    Playground.GetCell(x, y).Object = Playground.Exit;
+                    cell.Object = Playground.Exit;
+                    Playground.Exit.UpdateCell(cell);
                     continue;
                 }
 
@@ -163,12 +171,14 @@ public class PlaygroundBuilder(
                 var enemy = Playground.Enemies.FirstOrDefault(e => e.Coordinates.X == x && e.Coordinates.Y == y);
                 if (enemy != null)
                 {
-                    Playground.GetCell(x, y).Object = enemy;
+                    cell.Object = enemy;
+                    enemy.UpdateCell(cell);
                     continue;
                 }
 
                 // If no object found, create empty cell
-                Playground.GetCell(x, y).Object = new EmptyCell(new Coordinates(x, y), Guid.NewGuid());
+                var emptyCell = new EmptyCell(cell, Guid.NewGuid());
+                cell.Object = emptyCell;
             }
         }
 
@@ -202,7 +212,7 @@ public class PlaygroundBuilder(
 
         return false;
     }
-    
+
     private bool IsDistanceFromHeroValid(int x, int y)
     {
         // Calculate Manhattan distance from hero
@@ -226,7 +236,7 @@ public class PlaygroundBuilder(
         while (queue.Count > 0)
         {
             var (curX, curY) = queue.Dequeue();
-            if (curX == Playground.MapHeight - 1 && curY == 0) // End at bottom-right in Cartesian (Width-1, 0)
+            if (curX == Playground.MapWidth - 1 && curY == 0) // End at bottom-right in Cartesian (Width-1, 0)
                 return false; // Path exists, no closed area
 
             var neighbors = new[]
@@ -239,7 +249,7 @@ public class PlaygroundBuilder(
 
             foreach (var (nextX, nextY) in neighbors)
             {
-                if (nextX >= 0 && nextX < Playground.MapHeight &&
+                if (nextX >= 0 && nextX < Playground.MapWidth &&
                     nextY >= 0 && nextY < Playground.MapHeight &&
                     !tempOccupied.Contains((nextX, nextY)) &&
                     !visited.Contains((nextX, nextY)))
@@ -253,4 +263,3 @@ public class PlaygroundBuilder(
         return true; // No path found, would create closed area
     }
 }
-

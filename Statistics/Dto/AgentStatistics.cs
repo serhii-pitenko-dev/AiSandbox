@@ -5,5 +5,5 @@ namespace AiSandBox.Domain.Statistics.Entities;
 public record struct AgentStatistics(
     Guid id, 
     int Turn, 
-    ECellType CellType,
+    EObjectType CellType,
     AgentPath[] Path);

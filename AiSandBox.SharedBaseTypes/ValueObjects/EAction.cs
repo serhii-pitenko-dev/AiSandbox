@@ -1,6 +1,6 @@
 ﻿namespace AiSandBox.SharedBaseTypes.ValueObjects;
 
-public enum EAbility
+public enum EAction
 {
     Run
 }

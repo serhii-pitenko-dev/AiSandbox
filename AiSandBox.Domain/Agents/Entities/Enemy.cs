@@ -1,18 +1,19 @@
-﻿using AiSandBox.SharedBaseTypes.ValueObjects;
+﻿using AiSandBox.Domain.Maps;
+using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Domain.Agents.Entities;
 
 public class Enemy: Agent
 {
     public Enemy(
-        Coordinates coordinates,
+        Cell cell,
         InitialAgentCharacters characters,
-        Guid id) : base(ECellType.Enemy, characters, coordinates, id) 
+        Guid id) : base(EObjectType.Enemy, characters, cell, id) 
     {
 
     }
 
-    public Enemy(): base(ECellType.Enemy, new InitialAgentCharacters(), new Coordinates(0,0), new Guid())
+    public Enemy(): base(EObjectType.Enemy, new InitialAgentCharacters(), null, new Guid())
     { }
 
     public Enemy Clone()
