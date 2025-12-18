@@ -1,6 +1,7 @@
 ﻿using AiSandBox.ApplicationServices.Orchestrators;
 using AiSandBox.ApplicationServices.Queries.Map.Entities;
 using AiSandBox.ApplicationServices.Queries.Maps;
+using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapInitialPeconditions;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 using AiSandBox.ApplicationServices.Runner;
@@ -29,6 +30,7 @@ public class ConsoleRunner : IConsoleRunner
     private int _mapHeight;
     private List<string> _eventMessages = [];
     public event Action<Guid>? ReadyForRendering;
+    private MapLayoutResponse _fullMapLayout;
 
 
     public ConsoleRunner(
@@ -42,6 +44,7 @@ public class ConsoleRunner : IConsoleRunner
         _consoleSize = consoleSettings.Value.ConsoleSize;
         _consoleColorScheme = consoleSettings.Value.ColorScheme;
         _movementTimeout = consoleSettings.Value.MovementTimeout;
+        _fullMapLayout = new MapLayoutResponse(-1, new MapCell[0, 0]);
     }
 
     public void Run()
@@ -50,21 +53,19 @@ public class ConsoleRunner : IConsoleRunner
         InitializeConsole();
 
         // Subscribe to executor events
-        _executor.GameStarted += OnGameStarted;
-        _executor.MapObjectChanged += OnMapObjectChanged;
-        _executor.TurnExecuted += OnTurnEnded;
-        _executor.ExecutionFinished += OnExecutionFinished;
-        _executor.OnGlobalEvent += OnGlobalEventHandler;
+        _executor.OnGameStarted += OnGameStarted;
+        _executor.OnTurnExecuted += OnTurnEnded;
+        _executor.OnGameFinished += OnExecutionFinished;
+        _executor.OnGlobalEventRaised += OnGlobalEventHandler;
 
         // Start the game (business logic in executor)
         _executor.Run();
 
         // Cleanup
-        _executor.GameStarted -= OnGameStarted;
-        _executor.MapObjectChanged -= OnMapObjectChanged;
-        _executor.TurnExecuted -= OnTurnEnded;
-        _executor.ExecutionFinished -= OnExecutionFinished;
-        _executor.OnGlobalEvent -= OnGlobalEventHandler;
+        _executor.OnGameStarted -= OnGameStarted;
+        _executor.OnTurnExecuted -= OnTurnEnded;
+        _executor.OnGameFinished -= OnExecutionFinished;
+        _executor.OnGlobalEventRaised -= OnGlobalEventHandler;
 
         Console.ReadLine();
     }
@@ -83,20 +84,36 @@ public class ConsoleRunner : IConsoleRunner
         RenderInitialGameInfo();
 
         // Render the full map at game beginning
-        MapLayoutResponse fullMapLayout = _mapQueries.MapLayoutQuery.GetFromMemory(_playgroundId);
-        _mapWidth = fullMapLayout.Cells.GetLength(0);
-        _mapHeight = fullMapLayout.Cells.GetLength(1);
-        RenderFullMap(fullMapLayout);
+        _fullMapLayout = _mapQueries.MapLayoutQuery.GetFromMemory(_playgroundId);
+        _mapWidth = _fullMapLayout.Cells.GetLength(0);
+        _mapHeight = _fullMapLayout.Cells.GetLength(1);
+        RenderFullMap(_fullMapLayout);
     }
 
-    private void OnMapObjectChanged(Guid objectId)
+    private void RerenderCells(HashSet<Coordinates> coordinates)
     {
-        Task.Delay(_movementTimeout).Wait();
-        // Get only the affected cells for the changed object
-        MapLayoutResponse affectedCells = _mapQueries.MapLayoutQuery.GetObjectAffectedCellsFromMemory(_playgroundId, objectId);
+        foreach (var coord in coordinates)
+        {
+            RerenderSingleCell(coord);
+        }
+    }
 
-        // Update only the affected cells on the console
-        UpdateAffectedCells(affectedCells);
+    private void RerenderSingleCell(Coordinates coordinates)
+    {
+        int x = coordinates.X;
+        int y = coordinates.Y;
+
+        // Get the cell from the full map layout
+        MapCell cell = _fullMapLayout.Cells[x, y];
+
+        // Calculate console position
+        // Y is inverted: Cartesian Y 0 is at the bottom of the map
+        int consoleX = x + 2; // +2 for left border and numbering
+        int consoleY = _mapRenderStartRow + 1 + (_mapHeight - 1 - y); // +1 for top border
+
+        // Set cursor position and render the cell
+        Console.SetCursorPosition(consoleX, consoleY);
+        AnsiConsole.Markup(GetCellSymbol(cell));
     }
 
     private void OnTurnEnded(Guid playgroundId)
@@ -111,6 +128,86 @@ public class ConsoleRunner : IConsoleRunner
         string eventMessage = ConvertEventToString(globalEvent);
         _eventMessages.Add(eventMessage);
         RenderBottomData();
+
+        // Handle cell updates based on event type
+        if (globalEvent is AgentMoveActionEvent moveEvent)
+        {
+            HandleAgentMoveEvent(moveEvent);
+        }
+    }
+
+    private void HandleAgentMoveEvent(AgentMoveActionEvent moveEvent)
+    {
+        var affectedCellsToRerender = new HashSet<Coordinates>();
+
+        // Step 1: Remove old AgentEffect entries for this agent from all cells
+        for (int x = 0; x < _mapWidth; x++)
+        {
+            for (int y = 0; y < _mapHeight; y++)
+            {
+                MapCell cell = _fullMapLayout.Cells[x, y];
+
+                // Check if this cell has effects from the moving agent
+                var effectsWithoutAgent = cell.Effects
+                    .Where(effect => effect.AgentId != moveEvent.AgentId)
+                    .ToArray();
+
+                // If effects changed, update the cell
+                if (effectsWithoutAgent.Length != cell.Effects.Length)
+                {
+                    _fullMapLayout.Cells[x, y] = cell with { Effects = effectsWithoutAgent };
+                    affectedCellsToRerender.Add(new Coordinates(x, y));
+                }
+            }
+        }
+
+        // Step 2: Get new affected cells for this agent
+        AffectedCellsResponse affectedCellsResponse = 
+            _mapQueries.AffectedCellsQuery.GetFromMemory(_playgroundId, moveEvent.AgentId);
+
+        // Step 3: Apply new AgentEffect entries to the map
+        foreach (var newCell in affectedCellsResponse.Cells)
+        {
+            int x = newCell.Coordinates.X;
+            int y = newCell.Coordinates.Y;
+
+            // Get the current cell from the full map layout
+            MapCell currentCell = _fullMapLayout.Cells[x, y];
+
+            // Merge effects: keep existing effects from other agents and add new effects
+            var mergedEffects = currentCell.Effects
+                .Where(effect => effect.AgentId != moveEvent.AgentId) // Remove old effects for this agent (safety)
+                .Concat(newCell.Effects) // Add new effects
+                .ToArray();
+
+            // Update the cell in the full map layout
+            _fullMapLayout.Cells[x, y] = currentCell with { Effects = mergedEffects };
+            affectedCellsToRerender.Add(newCell.Coordinates);
+        }
+
+        // Step 4: Add the from/to coordinates to ensure agent position is updated
+        affectedCellsToRerender.Add(moveEvent.From);
+        affectedCellsToRerender.Add(moveEvent.To);
+
+        // Update the actual object positions in the map
+        // Clear the "from" cell
+        MapCell fromCell = _fullMapLayout.Cells[moveEvent.From.X, moveEvent.From.Y];
+        _fullMapLayout.Cells[moveEvent.From.X, moveEvent.From.Y] = fromCell with 
+        { 
+            ObjectId = Guid.Empty, 
+            ObjectType = EObjectType.Empty 
+        };
+
+        // Set the "to" cell
+        MapCell toCell = _fullMapLayout.Cells[moveEvent.To.X, moveEvent.To.Y];
+        _fullMapLayout.Cells[moveEvent.To.X, moveEvent.To.Y] = toCell with 
+        { 
+            ObjectId = moveEvent.AgentId, 
+            ObjectType = fromCell.ObjectType // Preserve the agent type (Hero/Enemy)
+        };
+
+        // Step 5: Re-render all affected cells
+        RerenderCells(affectedCellsToRerender);
     }
 
     private string ConvertEventToString(GlobalEvent globalEvent)
@@ -183,29 +280,6 @@ public class ConsoleRunner : IConsoleRunner
         RenderBottomData();
     }
 
-    private void UpdateAffectedCells(MapLayoutResponse affectedCellsLayout)
-    {
-        int width = affectedCellsLayout.Cells.GetLength(0);
-        int height = affectedCellsLayout.Cells.GetLength(1);
-
-        for (int cartesianY = 0; cartesianY < height; cartesianY++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                MapCell cell = affectedCellsLayout.Cells[x, cartesianY];
-
-                // Convert Cartesian to screen coordinates for rendering
-                int screenRow = _mapRenderStartRow + 1 + (_mapHeight - 1 - cartesianY);
-                int screenCol = 2 + x;
-
-                Console.SetCursorPosition(screenCol, screenRow);
-                AnsiConsole.Markup(GetCellSymbol(cell));
-            }
-        }
-
-        Console.SetCursorPosition(0, _mapRenderStartRow + _mapHeight + 3);
-    }
-
     private string GetCellSymbol(MapCell cell)
     {
         // First check if there's an actual agent/object at this cell
@@ -214,34 +288,44 @@ public class ConsoleRunner : IConsoleRunner
             return _cellData[cell.ObjectType];
         }
 
-        // Then check for effects on empty cells
+        // Priority order for rendering effects:
+        // 1. Hero Path (highest priority)
+        // 2. Hero Vision
+        // 3. Enemy Path
+        // 4. Enemy Vision (lowest priority)
+
+        bool hasHeroPath = false;
+        bool hasHeroVision = false;
+        bool hasEnemyPath = false;
+        bool hasEnemyVision = false;
+
         foreach (var agentEffect in cell.Effects)
         {
-            // Check hero effects first (higher priority)
             if (agentEffect.AgentType == EObjectType.Hero)
             {
                 if (agentEffect.Effects.Contains(EEffect.Path))
-                {
-                    return $"[#000000 on {_consoleColorScheme.HeroPathColor}]·[/]";
-                }
-                else if (agentEffect.Effects.Contains(EEffect.Vision))
-                {
-                    return $"[#000000 on {_consoleColorScheme.HeroVisionColor}]·[/]";
-                }
+                    hasHeroPath = true;
+                if (agentEffect.Effects.Contains(EEffect.Vision))
+                    hasHeroVision = true;
             }
-            // Check enemy effects
             else if (agentEffect.AgentType == EObjectType.Enemy)
             {
                 if (agentEffect.Effects.Contains(EEffect.Path))
-                {
-                    return $"[#000000 on {_consoleColorScheme.EnemyPathColor}]·[/]";
-                }
-                else if (agentEffect.Effects.Contains(EEffect.Vision))
-                {
-                    return $"[#000000 on {_consoleColorScheme.EnemyVisionColor}]·[/]";
-                }
+                    hasEnemyPath = true;
+                if (agentEffect.Effects.Contains(EEffect.Vision))
+                    hasEnemyVision = true;
             }
         }
+
+        // Render based on priority
+        if (hasHeroPath)
+            return $"[#000000 on {_consoleColorScheme.HeroPathColor}]·[/]";
+        if (hasHeroVision)
+            return $"[#000000 on {_consoleColorScheme.HeroVisionColor}]·[/]";
+        if (hasEnemyPath)
+            return $"[#000000 on {_consoleColorScheme.EnemyPathColor}]·[/]";
+        if (hasEnemyVision)
+            return $"[#000000 on {_consoleColorScheme.EnemyVisionColor}]·[/]";
 
         return _cellData[EObjectType.Empty];
     }

@@ -12,12 +12,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiSandBox.Ai\AiSandBox.Ai.csproj" />
+    <ProjectReference Include="..\AiSandBox.Common\AiSandBox.Common.csproj" />
     <ProjectReference Include="..\AiSandBox.Domain\AiSandBox.Domain.csproj" />
     <ProjectReference Include="..\AiSandBox.Infrastructure\AiSandBox.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Commands\Statistics\" />
+    <Folder Include="Dto\" />
+    <Folder Include="Runner\Events\Representation\" />
   </ItemGroup>
 
 </Project>

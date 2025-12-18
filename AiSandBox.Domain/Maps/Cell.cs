@@ -9,6 +9,12 @@ public class Cell
     public Coordinates Coordinates { get; init; }
 
     [JsonIgnore]
-    public SandboxMapBaseObject Object { get; internal set; }
+    public SandboxMapBaseObject Object { get; private set; }
+
+    public void PlaceObjectToThisCell(SandboxMapBaseObject mapObject)
+    {
+        Object = mapObject;
+        Object.UpdateCell(this);
+    }
 }
 

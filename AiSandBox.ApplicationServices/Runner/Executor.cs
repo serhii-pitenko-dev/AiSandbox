@@ -1,6 +1,8 @@
 ﻿using AiSandBox.Ai.AgentActions;
+using AiSandBox.Ai.Messages;
 using AiSandBox.ApplicationServices.Commands.Playground;
 using AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
+using AiSandBox.Common.MessageBroker;
 using AiSandBox.Domain.Playgrounds;
 using AiSandBox.Domain.State;
 using AiSandBox.Domain.Statistics.Entities;
@@ -24,15 +26,15 @@ public class Executor : IExecutor
     private readonly SandBoxConfiguration _configuration;
     private readonly IMemoryDataManager<PlayGroundStatistics> _statisticsMemoryRepository;
     private readonly IFileDataManager<PlayGroundStatistics> _statisticsFileRepository;
+    private readonly IMessageBroker _messageBroker;
     private ESandboxStatus sandboxStatus;
     private Guid _sandboxId;
+    private StandardPlayground _playground;
 
-    public int Turn { get; private set; } = 0;
-    public event Action<Guid>? GameStarted;
-    public event Action<Guid>? MapObjectChanged;
-    public event Action<Guid>? TurnExecuted;
-    public event Action<Guid, ESandboxStatus>? ExecutionFinished;
-    public event Action<Guid, GlobalEvent>? OnGlobalEvent;
+    public event Action<Guid>? OnGameStarted;
+    public event Action<Guid>? OnTurnExecuted;
+    public event Action<Guid, ESandboxStatus>? OnGameFinished;
+    public event Action<Guid, GlobalEvent>? OnGlobalEventRaised;
 
     public Executor(
         IPlaygroundCommandsHandleService mapCommands,
@@ -42,7 +44,8 @@ public class Executor : IExecutor
         IMemoryDataManager<PlayGroundStatistics> statisticsMemoryRepository,
         IFileDataManager<PlayGroundStatistics> statisticsFileRepository,
         IFileDataManager<StandardPlayground> playgroundFileRepository,
-        IFileDataManager<PlaygroundHistoryData> playgroundHistoryDataFileRepository)
+        IFileDataManager<PlaygroundHistoryData> playgroundHistoryDataFileRepository,
+        IMessageBroker messageBroker)
     {
         _playgroundCommands = mapCommands;
         _playgroundRepository = sandboxRepository;
@@ -51,6 +54,7 @@ public class Executor : IExecutor
         _statisticsMemoryRepository = statisticsMemoryRepository;
         _statisticsFileRepository = statisticsFileRepository;
         _playgroundHistoryDataFileRepository = playgroundHistoryDataFileRepository;
+        _messageBroker = messageBroker;
     }
 
     public void Run()
@@ -62,35 +66,35 @@ public class Executor : IExecutor
             _configuration.Enemy
         ));
 
-        StandardPlayground playground = _playgroundRepository.LoadObject(_sandboxId);
+        _playground = _playgroundRepository.LoadObject(_sandboxId);
 
         // Invoke game started event with sandboxId
-        OnGameStarted(playground);
+        StartGame();
 
         // Subscribe to game end events
         _aiActions.OnGameLost += OnGameLost;
         _aiActions.OnGameWin += OnGameWon;
-        _aiActions.OnAgentAction += OnAgentActionEvent;
+        _aiActions.OnAgentAction += OnGlobalEventInvoked;
+        _aiActions.OnAgentActionsCompleted += OnAgentActionsCompletedEvent;
 
         // 2. Endless cycle with turn-based execution
-        while (sandboxStatus == ESandboxStatus.InProgress && playground.Turn < _configuration.MaxTurns)
+        while (sandboxStatus == ESandboxStatus.InProgress && _playground.Turn < _configuration.MaxTurns)
         {
-            playground.NextTurn();
 
             // 3. Execute agent actions
-            ExecuteTurn(playground);
+            ExecuteTurn(_playground);
 
             // Save the updated sandbox state
-            _playgroundRepository.AddOrUpdate(_sandboxId, playground);
+            _playgroundRepository.AddOrUpdate(_sandboxId, _playground);
 
             // Wait for the configured turn timeout
             Thread.Sleep(_configuration.TurnTimeout);
 
             // 5. Invoke end turn event
-            OnTurnEnded(playground);
+            OnTurnEnded();
 
             // 4. Check if max turns reached
-            if (playground.Turn >= _configuration.MaxTurns)
+            if (_playground.Turn >= _configuration.MaxTurns)
             {
                 sandboxStatus = ESandboxStatus.TurnLimitReached;
                 OnGameEndedByMaxTurns();
@@ -100,30 +104,24 @@ public class Executor : IExecutor
         // Cleanup
         _aiActions.OnGameLost -= OnGameLost;
         _aiActions.OnGameWin -= OnGameWon;
+        _aiActions.OnAgentAction -= OnGlobalEventInvoked;
+        _aiActions.OnAgentActionsCompleted -= OnAgentActionsCompletedEvent;
     }
 
     private void ExecuteTurn(StandardPlayground playground)
     {
+        // Clear paths from previous turn
+
         // Execute hero action with playground ID
         playground.PrepareAgentForTurnActions(playground.Hero);
-        List<Coordinates> heroPath = _aiActions.Action(playground.Hero, playground.Id);
-        if (heroPath.Count > 0 && sandboxStatus == ESandboxStatus.InProgress)
-            playground.MoveObjectOnMap(playground.Hero.Coordinates, heroPath);
-
-        MapObjectChanged.Invoke(playground.Hero.Id);
+        _messageBroker.Publish(new AgentActionMessage(playground.Hero, playground.Id));
 
         // Execute enemy actions with playground ID
         foreach (var enemy in playground.Enemies.OrderBy(e => e.OrderInTurnQueue))
         {
             playground.PrepareAgentForTurnActions(enemy);
-            List<Coordinates> enemyPath = _aiActions.Action(enemy, playground.Id);
-            if (enemyPath.Count > 0)
-                playground.MoveObjectOnMap(enemy.Coordinates, enemyPath);
-
-            MapObjectChanged.Invoke(enemy.Id);
+            _messageBroker.Publish(new AgentActionMessage(enemy, playground.Id));
         }
-
-        playground.LookAroundEveryone();
     }
 
     private void OnGameLost(GameLostEvent gameLostEvent)
@@ -133,7 +131,7 @@ public class Executor : IExecutor
         {
             sandboxStatus = ESandboxStatus.HeroLost;
             // Fix: Use null-conditional operator and direct invocation instead of EndInvoke
-            ExecutionFinished?.Invoke(gameLostEvent.PlaygroundId, ESandboxStatus.HeroLost);
+            OnGameFinished?.Invoke(gameLostEvent.PlaygroundId, ESandboxStatus.HeroLost);
         }
     }
 
@@ -143,54 +141,63 @@ public class Executor : IExecutor
         if (gameWonEvent.PlaygroundId == _sandboxId)
         {
             sandboxStatus = ESandboxStatus.HeroWon;
-            ExecutionFinished?.Invoke(gameWonEvent.PlaygroundId, ESandboxStatus.HeroWon);
+            OnGameFinished?.Invoke(gameWonEvent.PlaygroundId, ESandboxStatus.HeroWon);
         }
     }
 
     private void OnGameEndedByMaxTurns()
     {
         // Handle max turns reached logic
-        ExecutionFinished?.Invoke(_sandboxId, ESandboxStatus.TurnLimitReached);
+        OnGameFinished?.Invoke(_sandboxId, ESandboxStatus.TurnLimitReached);
     }
 
-    private void Save(StandardPlayground playground)
+    private void Save()
     {
-
-        var dataToSave = playground.GetCurrentState();
-        if (playground.Turn <= 1)
+        var dataToSave = _playground.GetCurrentState();
+        if (_playground.Turn == 0)
         {
             var historyData = new PlaygroundHistoryData
             {
-                Id = playground.Id,
+                Id = _playground.Id,
                 States = new List<PlaygroundState> { dataToSave }
             };
-            _playgroundHistoryDataFileRepository.AddOrUpdate(playground.Id, historyData);
+            _playgroundHistoryDataFileRepository.AddOrUpdate(_playground.Id, historyData);
             return;
         }
 
-        PlaygroundHistoryData previousData = _playgroundHistoryDataFileRepository.LoadObject(playground.Id);
+        PlaygroundHistoryData previousData = _playgroundHistoryDataFileRepository.LoadObject(_playground.Id);
 
         previousData.States.Add(dataToSave);
-        _playgroundHistoryDataFileRepository.AddOrUpdate(playground.Id, previousData);
+        _playgroundHistoryDataFileRepository.AddOrUpdate(_playground.Id, previousData);
     }
 
-    protected virtual void OnGameStarted(StandardPlayground playground)
+    protected virtual void StartGame()
     {
-        Save(playground);
-        playground.LookAroundEveryone();
+        Save();
+        _playground.LookAroundEveryone();
 
-        GameStarted?.Invoke(playground.Id);
+        OnGameStarted?.Invoke(_playground.Id);
     }
 
-    protected virtual void OnTurnEnded(StandardPlayground playground)
+    protected virtual void OnTurnEnded()
     {
-        Save(playground);
-        Turn++;
-        TurnExecuted?.Invoke(playground.Id);
+        _playground.NextTurn();
+        Save();
+        OnTurnExecuted?.Invoke(_playground.Id);
     }
 
-    protected virtual void OnAgentActionEvent(BaseAgentActionEvent actionEvent)
+    protected virtual void OnAgentActionsCompletedEvent(List<BaseAgentActionEvent> actions)
     {
-        OnGlobalEvent?.Invoke(_sandboxId, actionEvent);
+
+    }
+
+    protected virtual void OnGlobalEventInvoked(GlobalEvent globalEvent)
+    {
+        if (globalEvent is AgentMoveActionEvent moveEvent)
+        {
+            _playground.MoveObjectOnMap(moveEvent.From, new List<Coordinates>() { moveEvent.To });
+        }
+
+        OnGlobalEventRaised?.Invoke(_sandboxId, globalEvent);
     }
 }

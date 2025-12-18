@@ -3,6 +3,7 @@ using AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
 using AiSandBox.ApplicationServices.Commands.Playground.InitializePlaygroundFromFile;
 using AiSandBox.ApplicationServices.Orchestrators;
 using AiSandBox.ApplicationServices.Queries.Maps;
+using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapInitialPeconditions;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 using AiSandBox.ApplicationServices.Runner;
@@ -25,6 +26,7 @@ public static class ApplicationServicesCollectionExtensions
         services.AddScoped<IMapQueriesHandleService, MapQueriesHandleService>();
         services.AddScoped<IInitialPreconditions, InitialPreconditionsHandle>();
         services.AddScoped<IMapLayout, GetMapLayoutHandle>();
+        services.AddScoped<IAffectedCells, GetAffectedCellsHandle>();
 
 
         services.AddScoped<IExecutor, Executor>();

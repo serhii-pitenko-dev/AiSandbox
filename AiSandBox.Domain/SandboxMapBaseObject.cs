@@ -6,6 +6,7 @@ namespace AiSandBox.Domain;
 
 public abstract class SandboxMapBaseObject
 {
+    [JsonInclude]
     private Cell Cell { get; set; }
 
     public EObjectType Type { get; protected set; }

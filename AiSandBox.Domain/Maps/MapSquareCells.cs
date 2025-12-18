@@ -28,14 +28,14 @@ public class MapSquareCells
                 {
                     Coordinates = new Coordinates(x, y),
                 };
-                EmptyCell emptyCell = new EmptyCell(newCell, Guid.NewGuid());
-                newCell.Object = emptyCell;
+                EmptyCell emptyCell = new EmptyCell(newCell);
+                newCell.PlaceObjectToThisCell(emptyCell);
                 _cellGrid[x, y] = newCell;
             }
         }
     }
 
-    internal void MoveObject(Coordinates from, List<Coordinates> path)
+    internal Cell MoveObject(Coordinates from, List<Coordinates> path)
     {
         Coordinates to = path.Last();
         Cell initialCell = _cellGrid[from.X, from.Y];
@@ -49,14 +49,16 @@ public class MapSquareCells
             throw new InvalidOperationException("Target cell is already occupied.");
         }
 
-        // Move the object
-        targetCell.Object = initialCell.Object;
+        targetCell.PlaceObjectToThisCell(initialCell.Object);
+
         if (targetCell.Object is Agent agent)
         {
             agent.AddToPath(path);
         }
 
-        initialCell.Object = new EmptyCell(initialCell, Guid.NewGuid());
+        initialCell.PlaceObjectToThisCell(new EmptyCell(initialCell));
+
+        return targetCell;
     }
 
     internal Cell[,] CutOutPartOfTheMap(Coordinates point, int radius)
@@ -93,6 +95,6 @@ public class MapSquareCells
         {
             throw new InvalidOperationException("Target cell is already occupied.");
         }
-        targetCell.Object = obj;
+        targetCell.PlaceObjectToThisCell(obj);
     }
 }

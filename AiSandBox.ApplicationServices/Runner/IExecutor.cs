@@ -5,11 +5,10 @@ namespace AiSandBox.ApplicationServices.Runner;
 
 public interface IExecutor
 {
-    event Action<Guid>? GameStarted;
-    event Action<Guid>? TurnExecuted;
-    event Action<Guid, ESandboxStatus>? ExecutionFinished;
-    event Action<Guid>? MapObjectChanged;
-    event Action<Guid, GlobalEvent>? OnGlobalEvent;
+    event Action<Guid>? OnGameStarted;
+    event Action<Guid>? OnTurnExecuted;
+    event Action<Guid, ESandboxStatus>? OnGameFinished;
+    event Action<Guid, GlobalEvent>? OnGlobalEventRaised;
 
     void Run();
 }

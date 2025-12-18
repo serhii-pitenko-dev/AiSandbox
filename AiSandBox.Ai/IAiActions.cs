@@ -10,7 +10,6 @@ public interface IAiActions
     event Action<GameLostEvent>? OnGameLost;
     event Action<GameWonEvent>? OnGameWin;
     event Action<BaseAgentActionEvent>? OnAgentAction;
-    List<Coordinates> Action(Agent agent, Guid playgroundId);
-    void UseAbilities(Agent agent, EAction[] abilities);
+    event Action<List<BaseAgentActionEvent>>? OnAgentActionsCompleted;
 }
 

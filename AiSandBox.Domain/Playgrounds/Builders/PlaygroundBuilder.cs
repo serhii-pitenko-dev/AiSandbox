@@ -146,7 +146,7 @@ public class PlaygroundBuilder(
                 var block = Playground.Blocks.FirstOrDefault(b => b.Coordinates.X == x && b.Coordinates.Y == y);
                 if (block != null)
                 {
-                    cell.Object = block;
+                    cell.PlaceObjectToThisCell(block);
                     block.UpdateCell(cell);
                     continue;
                 }
@@ -154,7 +154,7 @@ public class PlaygroundBuilder(
                 // Check for hero
                 if (Playground.Hero != null && Playground.Hero.Coordinates.X == x && Playground.Hero.Coordinates.Y == y)
                 {
-                    cell.Object = Playground.Hero;
+                    cell.PlaceObjectToThisCell(Playground.Hero);
                     Playground.Hero.UpdateCell(cell);
                     continue;
                 }
@@ -162,7 +162,7 @@ public class PlaygroundBuilder(
                 // Check for exit
                 if (Playground.Exit != null && Playground.Exit.Coordinates.X == x && Playground.Exit.Coordinates.Y == y)
                 {
-                    cell.Object = Playground.Exit;
+                    cell.PlaceObjectToThisCell(Playground.Exit);
                     Playground.Exit.UpdateCell(cell);
                     continue;
                 }
@@ -171,14 +171,14 @@ public class PlaygroundBuilder(
                 var enemy = Playground.Enemies.FirstOrDefault(e => e.Coordinates.X == x && e.Coordinates.Y == y);
                 if (enemy != null)
                 {
-                    cell.Object = enemy;
+                    cell.PlaceObjectToThisCell(enemy);
                     enemy.UpdateCell(cell);
                     continue;
                 }
 
                 // If no object found, create empty cell
-                var emptyCell = new EmptyCell(cell, Guid.NewGuid());
-                cell.Object = emptyCell;
+                var emptyCell = new EmptyCell(cell);
+                cell.PlaceObjectToThisCell(emptyCell);
             }
         }
 

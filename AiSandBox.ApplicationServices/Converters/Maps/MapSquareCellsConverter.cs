@@ -1,4 +1,5 @@
 ﻿using AiSandBox.ApplicationServices.Queries.Map.Entities;
+using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Playgrounds;
@@ -19,16 +20,15 @@ public static class MapSquareCellsConverter
         return BuildMapLayoutResponse(playground, agentEffectsMap);
     }
 
-
-    public static MapLayoutResponse GetObjectAffectedCells(this StandardPlayground playground, Guid objectId)
+    public static AffectedCellsResponse GetObjectAffectedCells(this StandardPlayground playground, Guid objectId)
     {
         var agentEffectsMap = new Dictionary<Coordinates, Dictionary<Guid, HashSet<EEffect>>>();
 
         // Process only the specific agent
         ProcessSingleAgentEffects(playground, objectId, agentEffectsMap);
 
-        // Build and return the map layout
-        return BuildMapLayoutResponse(playground, agentEffectsMap);
+        // Build and return only the affected cells
+        return BuildAffectedCellsResponse(playground, agentEffectsMap);
     }
 
     private static void ProcessAllAgentsEffects(
@@ -109,6 +109,24 @@ public static class MapSquareCellsConverter
         }
 
         return new MapLayoutResponse(playground.Turn, cells);
+    }
+
+    private static AffectedCellsResponse BuildAffectedCellsResponse(
+        StandardPlayground playground,
+        Dictionary<Coordinates, Dictionary<Guid, HashSet<EEffect>>> agentEffectsMap)
+    {
+        var affectedCells = new List<MapCell>();
+
+        // Only iterate over coordinates that have effects
+        foreach (var (coordinates, _) in agentEffectsMap)
+        {
+            var cell = playground.GetCell(coordinates.X, coordinates.Y);
+            var agentEffects = ConvertToAgentEffects(agentEffectsMap, coordinates, playground);
+
+            affectedCells.Add(new MapCell(coordinates, cell.Object.Id, cell.Object.Type, agentEffects));
+        }
+
+        return new AffectedCellsResponse(playground.Turn, affectedCells);
     }
 
     private static void AddEffectForAgent(

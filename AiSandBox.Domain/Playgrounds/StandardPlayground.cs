@@ -35,6 +35,7 @@ public class StandardPlayground
     {
         Turn++;
     }
+
     public void LookAroundEveryone()
     {
         _visibilityService.UpdateVisibleCells(Hero, this);
@@ -43,6 +44,11 @@ public class StandardPlayground
         {
             _visibilityService.UpdateVisibleCells(enemy, this);
         }
+    }
+
+    public void UpdateAgentVision(Agent agent)
+    {
+        _visibilityService.UpdateVisibleCells(agent, this);
     }
 
     public void PrepareAgentForTurnActions(Agent agent)
@@ -77,11 +83,19 @@ public class StandardPlayground
     {
         _blocks.Add(block);
         _map.PlaceObject(block);
-    } 
+    }
 
+    /// <summary>
+    /// Move agent and update vision
+    /// </summary>
     public void MoveObjectOnMap(Coordinates from, List<Coordinates> path)
     {
-        _map.MoveObject(from, path);
+        var cell = _map.CellGrid[from.X, from.Y];
+        var targetCell = _map.MoveObject(from, path);
+        if (targetCell.Object is Agent agent)
+        {
+            UpdateAgentVision(agent);
+        }
     }
 
     public Cell[,] CutMapPart(Coordinates center, int radius)

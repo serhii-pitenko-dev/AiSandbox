@@ -1,4 +1,6 @@
-﻿using AiSandBox.SharedBaseTypes.ValueObjects;
+﻿using AiSandBox.Common.MessageBroker;
+using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
+using AiSandBox.SharedBaseTypes.ValueObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,13 +11,12 @@ namespace AiSandBox.Ai.AgentActions;
 
 public class RandomActionsForSimulation : RandomActions
 {
-    protected override void ApplyAgentActionEvent(Guid agentId, bool isActivated, EAction action)
+    public RandomActionsForSimulation(IMessageBroker messageBroker) : base(messageBroker)
     {
-        // No implementation needed for simulation
     }
 
-    protected override void ApplyAgentMoveActionEvent(Guid agentId, Coordinates from, Coordinates to)
+    protected override void ApplyAgentActionEvent(BaseAgentActionEvent agentEvent)
     {
-        // No implementation needed for simulation
+        // In simulation mode, we do not raise the event to avoid side effects
     }
 }

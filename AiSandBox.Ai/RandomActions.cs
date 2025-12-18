@@ -1,4 +1,6 @@
-﻿using AiSandBox.Domain.Agents.Entities;
+﻿using AiSandBox.Ai.Messages;
+using AiSandBox.Common.MessageBroker;
+using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Maps;
 using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
 using AiSandBox.SharedBaseTypes.GlobalEvents.GameStateEvents;
@@ -9,25 +11,44 @@ namespace AiSandBox.Ai.AgentActions;
 public abstract class RandomActions : IAiActions
 {
     private readonly Random _random = new();
+    private readonly IMessageBroker _messageBroker;
+    
     public event Action<BaseAgentActionEvent>? OnAgentAction;
     public event Action<GameLostEvent>? OnGameLost;
     public event Action<GameWonEvent>? OnGameWin;
+    public event Action<List<BaseAgentActionEvent>>? OnAgentActionsCompleted;
 
-    public List<Coordinates> Action(Agent agent, Guid playgroundId)
+    protected RandomActions(IMessageBroker messageBroker)
     {
+        _messageBroker = messageBroker;
+        _messageBroker.Subscribe<AgentActionMessage>(HandleAgentActionMessage);
+    }
+
+    private void HandleAgentActionMessage(AgentActionMessage message)
+    {
+        Action(message.Agent, message.PlaygroundId);
+    }
+
+    private List<Coordinates> Action(Agent agent, Guid playgroundId)
+    {
+        List<BaseAgentActionEvent> actionEvents = new();
+        
         // Calculate the path without modifying the agent
-        List<Coordinates> path = CalculatePath(agent, playgroundId);
+        List<Coordinates> path = CalculatePath(agent, playgroundId, actionEvents);
          
         // Randomly decide whether to use abilities (without actually applying them)
         if (_random.NextDouble() < 0.5) // 50% chance
         {
-            UseAbilities(agent, Enum.GetValues<EAction>());
+            UseAbilities(agent, Enum.GetValues<EAction>(), actionEvents);
         }
+        
+        // Raise the end turn event with all collected action events
+        OnAgentActionsCompleted?.Invoke(actionEvents);
         
         return path;
     }
 
-    public void UseAbilities(Agent agent, EAction[] abilities)
+    private void UseAbilities(Agent agent, EAction[] abilities, List<BaseAgentActionEvent> actionEvents)
     {
         if (_random.NextDouble() < 0.1) // 10% chance
         {
@@ -36,7 +57,7 @@ public abstract class RandomActions : IAiActions
             // No conditional check - delegate handles it
             foreach (var ability in abilities)
             {
-                ApplyAgentActionEvent(agent.Id, true, ability);
+                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, true, ability));
             }
         }
         if (_random.NextDouble() < 0.1) // 10% chance
@@ -46,12 +67,12 @@ public abstract class RandomActions : IAiActions
             // No conditional check - delegate handles it
             foreach (var ability in abilities)
             {
-                ApplyAgentActionEvent(agent.Id, false, ability);
+                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, false, ability));
             }
         }
     }
 
-    private List<Coordinates> CalculatePath(Agent agent, Guid playgroundId)
+    private List<Coordinates> CalculatePath(Agent agent, Guid playgroundId, List<BaseAgentActionEvent> actionEvents)
     {
         List<Coordinates> path = new();
         
@@ -70,7 +91,7 @@ public abstract class RandomActions : IAiActions
             
             if (nextCoordinate.HasValue)
             {
-                ApplyAgentMoveActionEvent(agent.Id, currentPosition, nextCoordinate.Value);
+                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, currentPosition, nextCoordinate.Value));
                 path.Add(nextCoordinate.Value);
                 currentPosition = nextCoordinate.Value;
             }
@@ -167,18 +188,12 @@ public abstract class RandomActions : IAiActions
         }
     }
 
-    protected void RaiseAgentAction(AgentActionEvent eventArgs)
+    protected void RaiseAgentAction(BaseAgentActionEvent eventArgs)
     {
         OnAgentAction?.Invoke(eventArgs);
     }
 
-    protected void RaiseAgentMoveAction(AgentMoveActionEvent eventArgs)
-    {
-        OnAgentAction?.Invoke(eventArgs);
-    }
-
-    protected abstract void ApplyAgentActionEvent(Guid agentId, bool isActivated, EAction action);
-    protected abstract void ApplyAgentMoveActionEvent(Guid agentId, Coordinates from, Coordinates to);
+    protected abstract void ApplyAgentActionEvent(BaseAgentActionEvent agentEvent);
 
     protected virtual void OnLostGame(Guid playgroundId)
     {

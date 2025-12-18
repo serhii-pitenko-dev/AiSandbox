@@ -6,7 +6,7 @@ using AiSandBox.Infrastructure.MemoryManager;
 namespace AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 
 public class GetMapLayoutHandle(
-    IMemoryDataManager<StandardPlayground> MemoryDataManager, 
+    IMemoryDataManager<StandardPlayground> MemoryDataManager,
     IFileDataManager<StandardPlayground> FileDataManager,
     IFileDataManager<MapLayoutResponse> mapLayoutDataManager) : IMapLayout
 {
@@ -23,11 +23,5 @@ public class GetMapLayoutHandle(
         MemoryDataManager.AddOrUpdate(guid, playground);
 
         return playground.ToMapLayout();
-    }
-
-    public MapLayoutResponse GetObjectAffectedCellsFromMemory(Guid playgroundId, Guid objectId)
-    {
-        StandardPlayground playground = MemoryDataManager.LoadObject(playgroundId);
-        return playground.GetObjectAffectedCells(objectId);
     }
 }

@@ -5,7 +5,7 @@ namespace AiSandBox.Domain.InanimateObjects;
 
 public class EmptyCell : SandboxMapBaseObject
 {
-    public EmptyCell(Cell cell, Guid id) : base(EObjectType.Empty, cell, id) 
+    public EmptyCell(Cell cell) : base(EObjectType.Empty, cell, Guid.Empty) 
     { 
         Transparent = true;
     }
