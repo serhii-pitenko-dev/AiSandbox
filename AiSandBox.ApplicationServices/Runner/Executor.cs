@@ -32,7 +32,7 @@ public class Executor : IExecutor
     private StandardPlayground _playground;
 
     public event Action<Guid>? OnGameStarted;
-    public event Action<Guid>? OnTurnExecuted;
+    public event Action<Guid, int>? OnTurnExecuted;
     public event Action<Guid, ESandboxStatus>? OnGameFinished;
     public event Action<Guid, GlobalEvent>? OnGlobalEventRaised;
 
@@ -86,9 +86,6 @@ public class Executor : IExecutor
 
             // Save the updated sandbox state
             _playgroundRepository.AddOrUpdate(_sandboxId, _playground);
-
-            // Wait for the configured turn timeout
-            Thread.Sleep(_configuration.TurnTimeout);
 
             // 5. Invoke end turn event
             OnTurnEnded();
@@ -183,7 +180,7 @@ public class Executor : IExecutor
     {
         _playground.NextTurn();
         Save();
-        OnTurnExecuted?.Invoke(_playground.Id);
+        OnTurnExecuted?.Invoke(_playground.Id, _playground.Turn);
     }
 
     protected virtual void OnAgentActionsCompletedEvent(List<BaseAgentActionEvent> actions)
@@ -193,7 +190,7 @@ public class Executor : IExecutor
 
     protected virtual void OnGlobalEventInvoked(GlobalEvent globalEvent)
     {
-        if (globalEvent is AgentMoveActionEvent moveEvent)
+        if (globalEvent is AgentMoveActionEvent moveEvent && moveEvent.From != moveEvent.To)
         {
             _playground.MoveObjectOnMap(moveEvent.From, new List<Coordinates>() { moveEvent.To });
         }

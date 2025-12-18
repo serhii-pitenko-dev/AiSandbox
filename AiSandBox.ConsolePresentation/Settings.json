@@ -16,6 +16,6 @@
       "HeroVisionColor": "#B1D6E6",
       "EnemyVisionColor": "#FFCCCC"
     },
-    "MovementTimeout": 1000 //ms"
+    "ActionTimeout": 1000 //ms"
   }
 }

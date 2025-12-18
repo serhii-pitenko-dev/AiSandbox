@@ -2,4 +2,7 @@
 
 namespace AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
 
-public record class BaseAgentActionEvent(Guid AgentId, EAction ActionType): GlobalEvent;
+/// <summary>
+/// IsSuccess indicates whether the action was successfully executed (true) or failed (false, e.g., due to invalid conditions)
+/// </summary>
+public record class BaseAgentActionEvent(Guid AgentId, EAction ActionType, bool IsSuccess): GlobalEvent;

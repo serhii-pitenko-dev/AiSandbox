@@ -12,7 +12,7 @@ public abstract class RandomActions : IAiActions
 {
     private readonly Random _random = new();
     private readonly IMessageBroker _messageBroker;
-    
+
     public event Action<BaseAgentActionEvent>? OnAgentAction;
     public event Action<GameLostEvent>? OnGameLost;
     public event Action<GameWonEvent>? OnGameWin;
@@ -32,19 +32,19 @@ public abstract class RandomActions : IAiActions
     private List<Coordinates> Action(Agent agent, Guid playgroundId)
     {
         List<BaseAgentActionEvent> actionEvents = new();
-        
+
         // Calculate the path without modifying the agent
         List<Coordinates> path = CalculatePath(agent, playgroundId, actionEvents);
-         
+
         // Randomly decide whether to use abilities (without actually applying them)
         if (_random.NextDouble() < 0.5) // 50% chance
         {
             UseAbilities(agent, Enum.GetValues<EAction>(), actionEvents);
         }
-        
+
         // Raise the end turn event with all collected action events
         OnAgentActionsCompleted?.Invoke(actionEvents);
-        
+
         return path;
     }
 
@@ -52,22 +52,22 @@ public abstract class RandomActions : IAiActions
     {
         if (_random.NextDouble() < 0.1) // 10% chance
         {
-            agent.ActivateAbilities(abilities);
-            
+            var activatedAbilities = agent.ActivateAbilities(abilities);
+
             // No conditional check - delegate handles it
-            foreach (var ability in abilities)
+            foreach (var ability in activatedAbilities)
             {
-                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, true, ability));
+                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, true, ability, IsSuccess: true));
             }
         }
         if (_random.NextDouble() < 0.1) // 10% chance
         {
-            agent.DeActivateAbility(abilities);
-            
+            var deactivatedAbilities = agent.DeActivateAbility(abilities);
+
             // No conditional check - delegate handles it
-            foreach (var ability in abilities)
+            foreach (var ability in deactivatedAbilities)
             {
-                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, false, ability));
+                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, false, ability, IsSuccess: true));
             }
         }
     }
@@ -75,7 +75,7 @@ public abstract class RandomActions : IAiActions
     private List<Coordinates> CalculatePath(Agent agent, Guid playgroundId, List<BaseAgentActionEvent> actionEvents)
     {
         List<Coordinates> path = new();
-        
+
         if (agent.VisibleCells.Count == 0)
         {
             return path; // Return empty path if no visible cells
@@ -84,18 +84,27 @@ public abstract class RandomActions : IAiActions
         // Get random number of moves based on agent's speed
         int numberOfMoves = _random.Next(0, agent.Speed + 1);
         Coordinates currentPosition = agent.Coordinates;
+        if (numberOfMoves == 0)
+        {
+            ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, currentPosition, currentPosition, IsSuccess: true));
+        }
 
         for (int i = 0; i < numberOfMoves; i++)
         {
             var nextCoordinate = CalculateNextMove(agent, currentPosition, playgroundId, out bool shouldStop);
-            
+
             if (nextCoordinate.HasValue)
             {
-                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, currentPosition, nextCoordinate.Value));
+                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, currentPosition, nextCoordinate.Value, IsSuccess: true));
                 path.Add(nextCoordinate.Value);
                 currentPosition = nextCoordinate.Value;
             }
-            
+            else if (!shouldStop)
+            {
+                // Failed move attempt - raise event with IsSuccess = false
+                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, currentPosition, currentPosition, IsSuccess: false));
+            }
+
             if (shouldStop)
             {
                 break;
@@ -111,7 +120,7 @@ public abstract class RandomActions : IAiActions
 
         // Filter for neighboring cells only (Manhattan distance = 1)
         var neighboringCells = agent.VisibleCells
-            .Where(cell => Math.Max(Math.Abs(cell.Coordinates.X - currentPosition.X), 
+            .Where(cell => Math.Max(Math.Abs(cell.Coordinates.X - currentPosition.X),
                                    Math.Abs(cell.Coordinates.Y - currentPosition.Y)) == 1)
             .ToList();
 
@@ -122,7 +131,7 @@ public abstract class RandomActions : IAiActions
 
         // Get a random neighboring cell
         Cell targetCell = neighboringCells[_random.Next(neighboringCells.Count)];
-        
+
         // Check if move is valid based on agent type
         if (agent is Hero)
         {
@@ -169,8 +178,8 @@ public abstract class RandomActions : IAiActions
         shouldStop = false;
 
         // Enemy: if block, enemy, or exit, don't move; if hero, invoke LostGame
-        if (targetCell.Object.Type == EObjectType.Block || 
-            targetCell.Object.Type == EObjectType.Enemy || 
+        if (targetCell.Object.Type == EObjectType.Block ||
+            targetCell.Object.Type == EObjectType.Enemy ||
             targetCell.Object.Type == EObjectType.Exit)
         {
             return null; // Invalid move, don't add to path

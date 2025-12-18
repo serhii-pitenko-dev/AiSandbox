@@ -10,6 +10,7 @@ using AiSandBox.SharedBaseTypes.GlobalEvents;
 using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 using ConsolePresentation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 
@@ -21,7 +22,7 @@ public class ConsoleRunner : IConsoleRunner
     private readonly IMapQueriesHandleService _mapQueries;
     private readonly ConsoleSize _consoleSize;
     private readonly ColorScheme _consoleColorScheme;
-    private readonly int _movementTimeout;
+    private readonly int _actionTimeout;
     private Dictionary<EObjectType, string> _cellData = [];
     private Guid _playgroundId;
     private PreconditionsResponse? _preconditionsResponse;
@@ -43,7 +44,7 @@ public class ConsoleRunner : IConsoleRunner
         _mapQueries = mapQueries;
         _consoleSize = consoleSettings.Value.ConsoleSize;
         _consoleColorScheme = consoleSettings.Value.ColorScheme;
-        _movementTimeout = consoleSettings.Value.MovementTimeout;
+        _actionTimeout = consoleSettings.Value.ActionTimeout;
         _fullMapLayout = new MapLayoutResponse(-1, new MapCell[0, 0]);
     }
 
@@ -116,10 +117,15 @@ public class ConsoleRunner : IConsoleRunner
         AnsiConsole.Markup(GetCellSymbol(cell));
     }
 
-    private void OnTurnEnded(Guid playgroundId)
+    private void OnTurnEnded(Guid playgroundId, int turnNumber)
     {
-        // Clear event messages for the new turn
-        _eventMessages.Clear();
+        // Add turn increment message to event log
+        _eventMessages.Add($"=== Turn {turnNumber} completed ===");
+
+        // Update turn number display
+        Console.SetCursorPosition(0, 6);
+        WriteSysInfoLine($" Turn: {turnNumber}");
+
         RenderBottomData();
     }
 
@@ -134,6 +140,9 @@ public class ConsoleRunner : IConsoleRunner
         {
             HandleAgentMoveEvent(moveEvent);
         }
+
+        // Wait for the configured turn timeout
+        Thread.Sleep(_actionTimeout);
     }
 
     private void HandleAgentMoveEvent(AgentMoveActionEvent moveEvent)
@@ -215,11 +224,17 @@ public class ConsoleRunner : IConsoleRunner
         return globalEvent switch
         {
             AgentMoveActionEvent moveEvent =>
-                $"Agent {moveEvent.AgentId:N} moved from ({moveEvent.From.X}, {moveEvent.From.Y}) to ({moveEvent.To.X}, {moveEvent.To.Y})",
+                moveEvent.IsSuccess
+                    ? $"Agent {moveEvent.AgentId:N} moved from ({moveEvent.From.X}, {moveEvent.From.Y}) to ({moveEvent.To.X}, {moveEvent.To.Y})"
+                    : $"Agent {moveEvent.AgentId:N} FAILED to move from ({moveEvent.From.X}, {moveEvent.From.Y}) - invalid move",
             AgentActionEvent actionEvent =>
-                $"Agent {actionEvent.AgentId:N} {(actionEvent.IsActivated ? "activated" : "deactivated")} action: {actionEvent.ActionType}",
+                actionEvent.IsSuccess
+                    ? $"Agent {actionEvent.AgentId:N} {(actionEvent.IsActivated ? "activated" : "deactivated")} action: {actionEvent.ActionType}"
+                    : $"Agent {actionEvent.AgentId:N} FAILED to {(actionEvent.IsActivated ? "activate" : "deactivate")} action: {actionEvent.ActionType}",
             BaseAgentActionEvent baseActionEvent =>
-                $"Agent {baseActionEvent.AgentId:N} performed action: {baseActionEvent.ActionType}",
+                baseActionEvent.IsSuccess
+                    ? $"Agent {baseActionEvent.AgentId:N} performed action: {baseActionEvent.ActionType}"
+                    : $"Agent {baseActionEvent.AgentId:N} FAILED to perform action: {baseActionEvent.ActionType}",
             _ => $"Unknown event: {globalEvent.GetType().Name}"
         };
     }
@@ -338,7 +353,7 @@ public class ConsoleRunner : IConsoleRunner
         Console.SetCursorPosition(0, bottomDataStartRow);
 
         // Clear the bottom area with empty lines
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 21; i++)
         {
             AnsiConsole.MarkupLine($"[{_consoleColorScheme.BorderColor} on {_consoleColorScheme.GlobalBackGroundColor}]{new string(' ', Console.WindowWidth)}[/]");
         }
@@ -347,8 +362,8 @@ public class ConsoleRunner : IConsoleRunner
         Console.SetCursorPosition(0, bottomDataStartRow);
         AnsiConsole.MarkupLine($"[{_consoleColorScheme.BorderColor} on {_consoleColorScheme.GlobalBackGroundColor}]Events:[/]");
 
-        // Display the last 5 events
-        int eventsToShow = Math.Min(_eventMessages.Count, 5);
+        // Display the last 20 events (FIFO)
+        int eventsToShow = Math.Min(_eventMessages.Count, 20);
         for (int i = _eventMessages.Count - eventsToShow; i < _eventMessages.Count; i++)
         {
             AnsiConsole.MarkupLine($"[{_consoleColorScheme.BorderColor} on {_consoleColorScheme.GlobalBackGroundColor}]  {_eventMessages[i]}[/]");

@@ -68,8 +68,10 @@ public abstract class Agent: SandboxMapBaseObject
         PathToTarget.AddRange(coordinates);
     }
 
-    public virtual void ActivateAbilities(EAction[] abilities)
+    public virtual List<EAction> ActivateAbilities(EAction[] abilities)
     {
+        var activatedAbilities = new List<EAction>();
+
         foreach (EAction ability in abilities)
         {
             switch (ability)
@@ -77,17 +79,21 @@ public abstract class Agent: SandboxMapBaseObject
                 case EAction.Run:
                     if (IsRun)
                         break;
-
                     IsRun = true;
                     Speed += 1;
+                    activatedAbilities.Add(ability);
 
                     break;
             }
         }
+
+        return activatedAbilities;
     }
 
-    public virtual void DeActivateAbility(EAction[] abilities)
+    public virtual List<EAction> DeActivateAbility(EAction[] abilities)
     {
+        var deactivatedAbilities = new List<EAction>();
+
         foreach (EAction ability in abilities)
         {
             switch (ability)
@@ -98,9 +104,13 @@ public abstract class Agent: SandboxMapBaseObject
 
                     IsRun = false;
                     Speed -= 1;
+                    deactivatedAbilities.Add(ability);
+
                     break;
             }
         }
+
+        return deactivatedAbilities;    
     }
 
     public virtual void GetReadyForNewTurn()

@@ -6,7 +6,7 @@ namespace AiSandBox.ApplicationServices.Runner;
 public interface IExecutor
 {
     event Action<Guid>? OnGameStarted;
-    event Action<Guid>? OnTurnExecuted;
+    event Action<Guid, int>? OnTurnExecuted;
     event Action<Guid, ESandboxStatus>? OnGameFinished;
     event Action<Guid, GlobalEvent>? OnGlobalEventRaised;
 
