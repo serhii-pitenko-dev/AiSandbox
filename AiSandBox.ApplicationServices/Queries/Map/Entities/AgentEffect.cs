@@ -2,6 +2,6 @@
 
 namespace AiSandBox.ApplicationServices.Queries.Map.Entities;
 
-public record struct AgentEffect(Guid AgentId, EObjectType AgentType, EEffect[] Effects);
+public record struct AgentEffect(Guid AgentId, ObjectType AgentType, EEffect[] Effects);
 
 

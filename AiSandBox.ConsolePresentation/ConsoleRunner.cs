@@ -1,13 +1,14 @@
-﻿using AiSandBox.ApplicationServices.Queries.Map.Entities;
+﻿using AiSandBox.Ai.AgentActions;
+using AiSandBox.ApplicationServices.Queries.Map.Entities;
 using AiSandBox.ApplicationServices.Queries.Maps;
 using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapInitialPeconditions;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
-using AiSandBox.ApplicationServices.Runner;
-using AiSandBox.ApplicationServices.Runner.Logs.Presentation;
+using AiSandBox.Common.MessageBroker;
+using AiSandBox.Common.MessageBroker.Contracts.CoreServicesContract.Events;
+using AiSandBox.Common.MessageBroker.Contracts.GlobalMessagesContract.Events.Lost;
+using AiSandBox.Common.MessageBroker.Contracts.GlobalMessagesContract.Events.Win;
 using AiSandBox.ConsolePresentation.Settings;
-using AiSandBox.SharedBaseTypes.GlobalEvents;
-using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 using ConsolePresentation;
 using Microsoft.Extensions.Options;
@@ -17,12 +18,13 @@ namespace AiSandBox.ConsolePresentation;
 
 public class ConsoleRunner : IConsoleRunner
 {
-    private readonly IExecutorForPresentation _executor;
+    private readonly IAiActions _aiActions;
+    private readonly IMessageBroker _messageBroker;
     private readonly IMapQueriesHandleService _mapQueries;
     private readonly ConsoleSize _consoleSize;
     private readonly ColorScheme _consoleColorScheme;
     private readonly int _actionTimeout;
-    private Dictionary<EObjectType, string> _cellData = [];
+    private Dictionary<ObjectType, string> _cellData = [];
     private Guid _playgroundId;
     private PreconditionsResponse? _preconditionsResponse;
     private int _mapRenderStartRow = 7; // Row where map rendering starts
@@ -34,11 +36,13 @@ public class ConsoleRunner : IConsoleRunner
 
 
     public ConsoleRunner(
-        IExecutorForPresentation executor,
+        IAiActions aiActions,
+        IMessageBroker messageBroker,
         IMapQueriesHandleService mapQueries,
         IOptions<ConsoleSettings> consoleSettings)
     {
-        _executor = executor;
+        _aiActions = aiActions;
+        _messageBroker = messageBroker;
         _mapQueries = mapQueries;
         _consoleSize = consoleSettings.Value.ConsoleSize;
         _consoleColorScheme = consoleSettings.Value.ColorScheme;
@@ -51,20 +55,20 @@ public class ConsoleRunner : IConsoleRunner
         // Initialize console
         InitializeConsole();
 
-        // Subscribe to executor events
-        _executor.OnGameStarted += OnGameStarted;
-        _executor.OnTurnExecuted += OnTurnEnded;
-        _executor.OnGameFinished += OnExecutionFinished;
-        _executor.OnGlobalEventRaised += OnGlobalEventHandler;
+        // Subscribe to message broker
+        _messageBroker.Subscribe<GameStartedEvent>(OnGameStarted);
+        _messageBroker.Subscribe<TurnExecutedEvent>(OnTurnEnded);
+        _messageBroker.Subscribe<HeroLostEvent>(OnGameLost);
+        _messageBroker.Subscribe<HeroWonEvent>(OnGameWon);
+        _messageBroker.Subscribe<OnBaseAgentActionEvent>(OnAgentActionEvent);
 
-        // Start the game (business logic in executor)
-        _executor.Run();
 
         // Cleanup
-        _executor.OnGameStarted -= OnGameStarted;
-        _executor.OnTurnExecuted -= OnTurnEnded;
-        _executor.OnGameFinished -= OnExecutionFinished;
-        _executor.OnGlobalEventRaised -= OnGlobalEventHandler;
+        _messageBroker.Unsubscribe<GameStartedEvent>(OnGameStarted);
+        _messageBroker.Unsubscribe<TurnExecutedEvent>(OnTurnEnded);
+        _messageBroker.Unsubscribe<HeroLostEvent>(OnGameLost);
+        _messageBroker.Unsubscribe<HeroWonEvent>(OnGameWon);
+        _messageBroker.Unsubscribe<OnBaseAgentActionEvent>(OnAgentActionEvent);
 
         Console.ReadLine();
     }
@@ -77,9 +81,9 @@ public class ConsoleRunner : IConsoleRunner
         RenderBackground(_consoleColorScheme.GlobalBackGroundColor);
     }
 
-    private void OnGameStarted(Guid playgroundId)
+    private void OnGameStarted(GameStartedEvent message)
     {
-        _playgroundId = playgroundId;
+        _playgroundId = message.PlaygroundId;
         RenderInitialGameInfo();
 
         // Render the full map at game beginning
@@ -115,26 +119,27 @@ public class ConsoleRunner : IConsoleRunner
         AnsiConsole.Markup(GetCellSymbol(cell));
     }
 
-    private void OnTurnEnded(Guid playgroundId, int turnNumber)
+    private void OnTurnEnded(TurnExecutedEvent message)
     {
         // Add turn increment message to event log
-        _eventMessages.Add($"=== Turn {turnNumber} completed ===");
+        _eventMessages.Add($"=== Turn {message.TurnNumber} completed ===");
 
         // Update turn number display
         Console.SetCursorPosition(0, 6);
-        WriteSysInfoLine($" Turn: {turnNumber}");
+        WriteSysInfoLine($" Turn: {message.TurnNumber}");
 
         RenderBottomData();
     }
 
-    private void OnGlobalEventHandler(Guid playgroundId, GlobalEventPresentation globalEventPresentation)
+    private void OnAgentActionEvent(OnBaseAgentActionEvent message)
     {
-        string eventMessage = ConvertEventToString(globalEventPresentation);
+
+        string eventMessage = ConvertEventToString(message);
         _eventMessages.Add(eventMessage);
         RenderBottomData();
 
         // Handle cell updates based on event type
-        if (globalEventPresentation.GlobalEvent is AgentMoveActionEvent moveEvent)
+        if (message is OnAgentMoveActionEvent moveEvent)
         {
             HandleAgentMoveEvent(moveEvent);
         }
@@ -143,7 +148,7 @@ public class ConsoleRunner : IConsoleRunner
         Thread.Sleep(_actionTimeout);
     }
 
-    private void HandleAgentMoveEvent(AgentMoveActionEvent moveEvent)
+    private void HandleAgentMoveEvent(OnAgentMoveActionEvent moveEvent)
     {
         var affectedCellsToRerender = new HashSet<Coordinates>();
 
@@ -169,7 +174,7 @@ public class ConsoleRunner : IConsoleRunner
         }
 
         // Step 2: Get new affected cells for this agent
-        AffectedCellsResponse affectedCellsResponse = 
+        AffectedCellsResponse affectedCellsResponse =
             _mapQueries.AffectedCellsQuery.GetFromMemory(_playgroundId, moveEvent.AgentId);
 
         // Step 3: Apply new AgentEffect entries to the map
@@ -199,17 +204,17 @@ public class ConsoleRunner : IConsoleRunner
         // Update the actual object positions in the map
         // Clear the "from" cell
         MapCell fromCell = _fullMapLayout.Cells[moveEvent.From.X, moveEvent.From.Y];
-        _fullMapLayout.Cells[moveEvent.From.X, moveEvent.From.Y] = fromCell with 
-        { 
-            ObjectId = Guid.Empty, 
-            ObjectType = EObjectType.Empty 
+        _fullMapLayout.Cells[moveEvent.From.X, moveEvent.From.Y] = fromCell with
+        {
+            ObjectId = Guid.Empty,
+            ObjectType = ObjectType.Empty
         };
 
         // Set the "to" cell
         MapCell toCell = _fullMapLayout.Cells[moveEvent.To.X, moveEvent.To.Y];
-        _fullMapLayout.Cells[moveEvent.To.X, moveEvent.To.Y] = toCell with 
-        { 
-            ObjectId = moveEvent.AgentId, 
+        _fullMapLayout.Cells[moveEvent.To.X, moveEvent.To.Y] = toCell with
+        {
+            ObjectId = moveEvent.AgentId,
             ObjectType = fromCell.ObjectType // Preserve the agent type (Hero/Enemy)
         };
 
@@ -217,31 +222,24 @@ public class ConsoleRunner : IConsoleRunner
         RerenderCells(affectedCellsToRerender);
     }
 
-    private string ConvertEventToString(GlobalEventPresentation globalEventPresentation)
+    private string ConvertEventToString(OnBaseAgentActionEvent actionEvent)
     {
-        string eventMessage = globalEventPresentation.GlobalEvent switch
+        string eventMessage = actionEvent switch
         {
-            AgentMoveActionEvent moveEvent =>
+            OnAgentMoveActionEvent moveEvent =>
                 moveEvent.IsSuccess
                     ? $"Agent {moveEvent.AgentId:N} moved from ({moveEvent.From.X}, {moveEvent.From.Y}) to ({moveEvent.To.X}, {moveEvent.To.Y})"
                     : $"Agent {moveEvent.AgentId:N} FAILED to move from ({moveEvent.From.X}, {moveEvent.From.Y}) - invalid move",
-            AgentActionEvent actionEvent =>
-                actionEvent.IsSuccess
-                    ? $"Agent {actionEvent.AgentId:N} {(actionEvent.IsActivated ? "activated" : "deactivated")} action: {actionEvent.ActionType}"
-                    : $"Agent {actionEvent.AgentId:N} FAILED to {(actionEvent.IsActivated ? "activate" : "deactivate")} action: {actionEvent.ActionType}",
-            BaseAgentActionEvent baseActionEvent =>
-                baseActionEvent.IsSuccess
-                    ? $"Agent {baseActionEvent.AgentId:N} performed action: {baseActionEvent.ActionType}"
-                    : $"Agent {baseActionEvent.AgentId:N} FAILED to perform action: {baseActionEvent.ActionType}",
-            _ => $"Unknown event: {globalEventPresentation.GlobalEvent.GetType().Name}"
+            OnAgentToggleActionEvent toggleActionEvent =>
+                    $"Agent {toggleActionEvent.AgentId:N} {(toggleActionEvent.IsActivated ? "activated" : "deactivated")} action: {toggleActionEvent.AgentAction}",
+                    
+            _ => $"Unknown event: {actionEvent.GetType().Name}"
         };
 
-        // Add agent details if EventData contains AgentLog
-        if (globalEventPresentation.EventData is AgentLog agentLog)
-        {
-            string runStatus = agentLog.IsRun ? "Running" : "Walking";
-            eventMessage += $"\n    → Type: {agentLog.Type}, Speed: {agentLog.Speed}, Sight: {agentLog.SightRange}, {runStatus}, Stamina: {agentLog.Stamina}/{agentLog.MaxStamina}, Turn Order: {agentLog.OrderInTurnQueue}";
-        }
+
+        string runStatus = actionEvent.AgentSnapshot.IsRun ? "Running" : "Walking";
+        eventMessage += $"\n    → Type: {actionEvent.AgentSnapshot.Type}, Speed: {actionEvent.AgentSnapshot.Speed}, Sight: {actionEvent.AgentSnapshot.SightRange}, {runStatus}, Stamina: {actionEvent.AgentSnapshot.Stamina}/{actionEvent.AgentSnapshot.MaxStamina}, Turn Order: {actionEvent.AgentSnapshot.OrderInTurnQueue}";
+
 
         return eventMessage;
     }
@@ -305,7 +303,7 @@ public class ConsoleRunner : IConsoleRunner
     private string GetCellSymbol(MapCell cell)
     {
         // First check if there's an actual agent/object at this cell
-        if (cell.ObjectType != EObjectType.Empty)
+        if (cell.ObjectType != ObjectType.Empty)
         {
             return _cellData[cell.ObjectType];
         }
@@ -323,14 +321,14 @@ public class ConsoleRunner : IConsoleRunner
 
         foreach (var agentEffect in cell.Effects)
         {
-            if (agentEffect.AgentType == EObjectType.Hero)
+            if (agentEffect.AgentType == ObjectType.Hero)
             {
                 if (agentEffect.Effects.Contains(EEffect.Path))
                     hasHeroPath = true;
                 if (agentEffect.Effects.Contains(EEffect.Vision))
                     hasHeroVision = true;
             }
-            else if (agentEffect.AgentType == EObjectType.Enemy)
+            else if (agentEffect.AgentType == ObjectType.Enemy)
             {
                 if (agentEffect.Effects.Contains(EEffect.Path))
                     hasEnemyPath = true;
@@ -349,7 +347,7 @@ public class ConsoleRunner : IConsoleRunner
         if (hasEnemyVision)
             return $"[#000000 on {_consoleColorScheme.EnemyVisionColor}]·[/]";
 
-        return _cellData[EObjectType.Empty];
+        return _cellData[ObjectType.Empty];
     }
 
     private void RenderBottomData()
@@ -384,13 +382,13 @@ public class ConsoleRunner : IConsoleRunner
 
     private void InitializeElementsRendering()
     {
-        _cellData = new Dictionary<EObjectType, string>
+        _cellData = new Dictionary<ObjectType, string>
         {
-            { EObjectType.Empty, $"[#000000 on {_consoleColorScheme.MapBackGroundColor}]·[/]" },
-            { EObjectType.Block, $"[{_consoleColorScheme.BlockColor} on {_consoleColorScheme.MapBackGroundColor}]█[/]" },
-            { EObjectType.Hero, $"[{_consoleColorScheme.HeroColor} on {_consoleColorScheme.MapBackGroundColor}]█[/]" },
-            { EObjectType.Enemy, $"[{_consoleColorScheme.EnemyColor} on {_consoleColorScheme.MapBackGroundColor}]X[/]" },
-            { EObjectType.Exit, $"[Black on Green]E[/]" }
+            { ObjectType.Empty, $"[#000000 on {_consoleColorScheme.MapBackGroundColor}]·[/]" },
+            { ObjectType.Block, $"[{_consoleColorScheme.BlockColor} on {_consoleColorScheme.MapBackGroundColor}]█[/]" },
+            { ObjectType.Hero, $"[{_consoleColorScheme.HeroColor} on {_consoleColorScheme.MapBackGroundColor}]█[/]" },
+            { ObjectType.Enemy, $"[{_consoleColorScheme.EnemyColor} on {_consoleColorScheme.MapBackGroundColor}]X[/]" },
+            { ObjectType.Exit, $"[Black on Green]E[/]" }
         };
     }
 
@@ -422,33 +420,14 @@ public class ConsoleRunner : IConsoleRunner
         Console.SetCursorPosition(0, 0);
     }
 
-    private void OnExecutionFinished(Guid playgroundId, ESandboxStatus turnStatus)
-    {
-        switch (turnStatus)
-        {
-            case ESandboxStatus.HeroWon:
-                OnGameWon();
-                break;
-            case ESandboxStatus.HeroLost:
-                OnGameLost();
-                break;
-            case ESandboxStatus.TurnLimitReached:
-                OnTurnLimitReached();
-                break;
-            default:
-                WriteSysInfoLine($"Unknown game status: {turnStatus}");
-                break;
-        }
-    }
-
-    private void OnGameWon()
+    private void OnGameWon(HeroWonEvent gameWonEventMessage)
     {
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[Green on {_consoleColorScheme.GlobalBackGroundColor}]!!! HERO WIN !!![/]");
     }
 
-    private void OnGameLost()
+    private void OnGameLost(HeroLostEvent gameLostEventMessage)
     {
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();

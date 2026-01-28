@@ -6,6 +6,6 @@ public struct MapConfiguration
 {
     public Size Size { get; set; }
     public ElementsPercentages ElementsPercentages { get; set; }
-    public EMapType Type { get; set; }
+    public MapType Type { get; set; }
     public FileSource FileSource { get; set; }
 }

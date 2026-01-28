@@ -8,6 +8,8 @@ public static class CommonServiceCollectionExtensions
     public static IServiceCollection AddEventAggregator(this IServiceCollection services)
     {
         services.AddSingleton<IMessageBroker, MessageBroker.MessageBroker>();
+        services.AddSingleton<IBrokerRpcClient, BrokerRpcClient>();
+
         return services;
     }
 }

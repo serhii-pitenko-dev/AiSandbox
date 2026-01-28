@@ -10,4 +10,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.10" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AiSandBox.SharedBaseTypes\AiSandBox.SharedBaseTypes.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="MessageBroker\Contracts\AiContract\Events\" />
+    <Folder Include="MessageBroker\Contracts\CoreServicesContract\Logs\" />
+  </ItemGroup>
+
 </Project>

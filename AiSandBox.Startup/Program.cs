@@ -14,7 +14,7 @@ using AiSandBox.Common.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 var presentationType =
-    Enum.Parse<EPresentationType>(
+    Enum.Parse<PresentationType>(
         builder.Configuration["PresentationType"]!,
         ignoreCase: true);
 
@@ -26,7 +26,7 @@ builder.Services.AddDomainServices();
 builder.Services.AddApplicationServices();
 builder.Services.AddControllers();
 builder.Services.AddAiSandBoxServices(presentationType);
-if (presentationType == EPresentationType.Console)
+if (presentationType == PresentationType.Console)
 {
     builder.Services.AddConsolePresentationServices(builder.Configuration, builder.Configuration);
     builder.Configuration.AddJsonFile("ConsoleSettings.json", optional: false, reloadOnChange: true);
@@ -37,7 +37,7 @@ if (isWebApiEnabled)
 
 var app = builder.Build();
 
-if (presentationType == EPresentationType.Console)
+if (presentationType == PresentationType.Console)
     app.Services.GetRequiredService<IConsoleRunner>().Run();
 
 if (isWebApiEnabled)

@@ -27,12 +27,10 @@ public static class ApplicationServicesCollectionExtensions
         services.AddScoped<IMapLayout, GetMapLayoutHandle>();
         services.AddScoped<IAffectedCells, GetAffectedCellsHandle>();
 
-
-        services.AddScoped<IExecutorForPresentation, ExecutorForPresentation>();
-        services.AddScoped<IExecutorForSimulation, ExecutorForSimulation>();
-
         services.AddSingleton<IFileDataManager<MapLayoutResponse>, FileDataManager<MapLayoutResponse>>();
         services.AddSingleton<IFileDataManager<PlaygroundHistoryData>, FileDataManager<PlaygroundHistoryData>>();
+
+        services.AddScoped<IExecutorForPresentation, ExecutorForPresentation>();
 
         return services;
     }

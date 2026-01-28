@@ -5,7 +5,7 @@ namespace AiSandBox.Domain.InanimateObjects;
 
 public class Block: SandboxMapBaseObject
 {
-    public Block(Cell cell, Guid id) : base(EObjectType.Block, cell, id) 
+    public Block(Cell cell, Guid id) : base(ObjectType.Block, cell, id) 
     { 
         Transparent = false;
     }

@@ -1,216 +1,136 @@
-﻿using AiSandBox.Ai.Messages;
-using AiSandBox.Common.MessageBroker;
-using AiSandBox.Domain.Agents.Entities;
-using AiSandBox.Domain.Maps;
-using AiSandBox.SharedBaseTypes.GlobalEvents.Actions.Agent;
-using AiSandBox.SharedBaseTypes.GlobalEvents.GameStateEvents;
+﻿using AiSandBox.Common.MessageBroker;
+using AiSandBox.Common.MessageBroker.Contracts.AiContract.Commands;
+using AiSandBox.Common.MessageBroker.Contracts.AiContract.Responses;
+using AiSandBox.Common.MessageBroker.Contracts.CoreServicesContract.Events;
+using AiSandBox.Infrastructure.MemoryManager;
+using AiSandBox.SharedBaseTypes.AiContract.Dto;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Ai.AgentActions;
 
-public abstract class RandomActions : IAiActions
+/// <summary>
+/// Should be one instace per one simulation 
+/// </summary>
+public class RandomActions : IAiActions
 {
     private readonly Random _random = new();
     private readonly IMessageBroker _messageBroker;
+    protected IMemoryDataManager<AgentState> _agentStateMemoryRepository;
 
-    public event Action<BaseAgentActionEvent>? OnAgentAction;
-    public event Action<GameLostEvent>? OnGameLost;
-    public event Action<GameWonEvent>? OnGameWin;
-    public event Action<List<BaseAgentActionEvent>>? OnAgentActionsCompleted;
-
-    protected RandomActions(IMessageBroker messageBroker)
+    protected RandomActions(IMessageBroker messageBroker, IMemoryDataManager<AgentState> agentStateMemoryRepository)
     {
         _messageBroker = messageBroker;
-        _messageBroker.Subscribe<AgentActionMessage>(HandleAgentActionMessage);
+        _agentStateMemoryRepository = agentStateMemoryRepository;
     }
 
-    private void HandleAgentActionMessage(AgentActionMessage message)
+    public void Initialize()
     {
-        Action(message.Agent, message.PlaygroundId);
+        _messageBroker.Subscribe<GameStartedEvent>(msg =>
+        {
+            _messageBroker.Publish(new AiReadyToActionsResponse(Guid.NewGuid(), msg.PlaygroundId, msg.Id));
+        });
+
+        _messageBroker.Subscribe<RequestAgentDecisionMakeCommand>(msg =>
+        {
+            var agent = _agentStateMemoryRepository.LoadObject(msg.AgentId);
+            AgentDecisionBaseResponse response = HandleAgentActionMessage(agent, msg.Id);
+            _messageBroker.Publish(response);
+        });
     }
 
-    private List<Coordinates> Action(Agent agent, Guid playgroundId)
+    private AgentDecisionBaseResponse HandleAgentActionMessage(AgentState agent, Guid correlationId)
     {
-        List<BaseAgentActionEvent> actionEvents = new();
-
-        // Calculate the path without modifying the agent
-        List<Coordinates> path = CalculatePath(agent, playgroundId, actionEvents);
-
-        // Randomly decide whether to use abilities (without actually applying them)
-        if (_random.NextDouble() < 0.5) // 50% chance
-        {
-            UseAbilities(agent, Enum.GetValues<EAction>(), actionEvents);
-        }
-
-        // Raise the end turn event with all collected action events
-        OnAgentActionsCompleted?.Invoke(actionEvents);
-
-        return path;
+        return Action(agent, correlationId);
     }
 
-    private void UseAbilities(Agent agent, EAction[] abilities, List<BaseAgentActionEvent> actionEvents)
+    private AgentDecisionBaseResponse Action(AgentState agent, Guid correlationId)
     {
-        if (_random.NextDouble() < 0.1) // 10% chance
+        var action = agent.AvailableLimitedActions[Random.Shared.Next(agent.AvailableLimitedActions.Count)];
+        switch (action)
         {
-            var activatedAbilities = agent.ActivateAbilities(abilities);
-
-            // No conditional check - delegate handles it
-            foreach (var ability in activatedAbilities)
-            {
-                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, true, ability, IsSuccess: true));
-            }
-        }
-        if (_random.NextDouble() < 0.1) // 10% chance
-        {
-            var deactivatedAbilities = agent.DeActivateAbility(abilities);
-
-            // No conditional check - delegate handles it
-            foreach (var ability in deactivatedAbilities)
-            {
-                ApplyAgentActionEvent(new AgentActionEvent(agent.Id, false, ability, IsSuccess: true));
-            }
-        }
-    }
-
-    private List<Coordinates> CalculatePath(Agent agent, Guid playgroundId, List<BaseAgentActionEvent> actionEvents)
-    {
-        List<Coordinates> path = new();
-
-        if (agent.VisibleCells.Count == 0)
-        {
-            return path; // Return empty path if no visible cells
-        }
-
-        // Get random number of moves based on agent's speed
-        int numberOfMoves = _random.Next(0, agent.Speed + 1);
-        Coordinates currentPosition = agent.Coordinates;
-        if (numberOfMoves == 0)
-        {
-            ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, agent.Type, currentPosition, currentPosition, IsSuccess: true));
-        }
-
-        for (int i = 0; i < numberOfMoves; i++)
-        {
-            var nextCoordinate = CalculateNextMove(agent, currentPosition, playgroundId, out bool shouldStop);
-
-            if (nextCoordinate.HasValue)
-            {
-                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, agent.Type, currentPosition, nextCoordinate.Value, IsSuccess: true));
-                path.Add(nextCoordinate.Value);
-                currentPosition = nextCoordinate.Value;
-            }
-            else if (!shouldStop)
-            {
-                // Failed move attempt - raise event with IsSuccess = false
-                ApplyAgentActionEvent(new AgentMoveActionEvent(agent.Id, agent.Type, currentPosition, currentPosition, IsSuccess: false));
-            }
-
-            if (shouldStop)
-            {
+            case AgentAction.Move:
+                // Calculate the path without modifying the agent
+                return CalculatePath(agent, correlationId);
                 break;
+            case AgentAction.Run:
+                // Randomly decide whether to use abilities
+                if (_random.NextDouble() < 0.2) // 20% chance
+                    return UseAbilities(agent, action, correlationId);
+                break;
+            default:
+                break;
+        }
+
+        throw new NotImplementedException($"Action {action} is not implemented in RandomActions AI.");
+    }
+
+    private AgentDecisionBaseResponse UseAbilities(AgentState agentState, AgentAction ability, Guid correlationId)
+    {
+        bool isActivated = false;
+
+        if (_random.NextDouble() < 0.1) // 10% chance to activate ability
+        {
+            if (ability == AgentAction.Run && !agentState.IsRun)
+            {
+                isActivated = true;
             }
         }
 
-        return path;
+        if (_random.NextDouble() < 0.1) // 10% chance to deactivate ability
+        {
+            if (ability == AgentAction.Run && !agentState.IsRun)
+            {
+                isActivated = false;
+            }
+        }
+
+        return new AgentDecisionUseAbilityResponse(
+            Guid.NewGuid(), 
+            agentState.Id, 
+            isActivated, 
+            ability, 
+            correlationId, 
+            IsSuccess: true);
     }
 
-    private Coordinates? CalculateNextMove(Agent agent, Coordinates currentPosition, Guid playgroundId, out bool shouldStop)
+    private AgentDecisionMoveResponse CalculatePath(AgentState agentState, Guid correlationId)
     {
-        shouldStop = false;
+        // Get random number of moves based on agent's speed
+        int numberOfMoves = _random.Next(0, agentState.Speed + 1);
+        Coordinates from = agentState.Coordinates;
+        Coordinates to = agentState.Coordinates;
+        to = CalculateNextMove(agentState, from);
+
+        return new AgentDecisionMoveResponse(
+            Guid.NewGuid(),
+            agentState.Id,
+            from,
+            to,
+            correlationId,
+            IsSuccess: true);
+    }
+
+    private Coordinates CalculateNextMove(AgentState agentState, Coordinates currentPosition)
+    {
+        if (agentState.VisibleCells.Count == 0)
+        {
+            return currentPosition; // No visible cells to move to
+        }
 
         // Filter for neighboring cells only (Manhattan distance = 1)
-        var neighboringCells = agent.VisibleCells
+        var neighboringCells = agentState.VisibleCells
             .Where(cell => Math.Max(Math.Abs(cell.Coordinates.X - currentPosition.X),
                                    Math.Abs(cell.Coordinates.Y - currentPosition.Y)) == 1)
             .ToList();
 
         if (neighboringCells.Count == 0)
         {
-            return null; // No neighboring cells available
+            return currentPosition; // No neighboring cells available
         }
 
         // Get a random neighboring cell
-        Cell targetCell = neighboringCells[_random.Next(neighboringCells.Count)];
+        VisibleCellData targetCell = neighboringCells[_random.Next(neighboringCells.Count)];
 
-        // Check if move is valid based on agent type
-        if (agent is Hero)
-        {
-            return ValidateHeroMove(targetCell, playgroundId, out shouldStop);
-        }
-        else if (agent is Enemy)
-        {
-            return ValidateEnemyMove(targetCell, playgroundId, out shouldStop);
-        }
-
-        return null;
-    }
-
-    private Coordinates? ValidateHeroMove(Cell targetCell, Guid playgroundId, out bool shouldStop)
-    {
-        shouldStop = false;
-
-        // Hero: if block, don't move; if enemy, invoke LostGame; if exit, invoke WinGame
-        if (targetCell.Object.Type == EObjectType.Block)
-        {
-            return null; // Invalid move, don't add to path
-        }
-        else if (targetCell.Object.Type == EObjectType.Enemy)
-        {
-            OnLostGame(playgroundId);
-            shouldStop = true;
-            return null; // Stop calculating path after game loss
-        }
-        else if (targetCell.Object.Type == EObjectType.Exit)
-        {
-            OnWinGame(playgroundId);
-            shouldStop = true;
-            return targetCell.Coordinates; // Add exit to path, then stop
-        }
-        else
-        {
-            // Valid move
-            return targetCell.Coordinates;
-        }
-    }
-
-    private Coordinates? ValidateEnemyMove(Cell targetCell, Guid playgroundId, out bool shouldStop)
-    {
-        shouldStop = false;
-
-        // Enemy: if block, enemy, or exit, don't move; if hero, invoke LostGame
-        if (targetCell.Object.Type == EObjectType.Block ||
-            targetCell.Object.Type == EObjectType.Enemy ||
-            targetCell.Object.Type == EObjectType.Exit)
-        {
-            return null; // Invalid move, don't add to path
-        }
-        else if (targetCell.Object.Type == EObjectType.Hero)
-        {
-            OnLostGame(playgroundId);
-            shouldStop = true;
-            return null; // Stop calculating path after game loss
-        }
-        else
-        {
-            // Valid move (only Empty cells)
-            return targetCell.Coordinates;
-        }
-    }
-
-    protected void RaiseAgentAction(BaseAgentActionEvent eventArgs)
-    {
-        OnAgentAction?.Invoke(eventArgs);
-    }
-
-    protected abstract void ApplyAgentActionEvent(BaseAgentActionEvent agentEvent);
-
-    protected virtual void OnLostGame(Guid playgroundId)
-    {
-        OnGameLost?.Invoke(new GameLostEvent(playgroundId));
-    }
-
-    protected virtual void OnWinGame(Guid playgroundId)
-    {
-        OnGameWin?.Invoke(new GameWonEvent(playgroundId));
+        return targetCell.Coordinates;
     }
 }

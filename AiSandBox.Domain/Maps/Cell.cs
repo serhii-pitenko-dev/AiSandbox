@@ -11,6 +11,11 @@ public class Cell
     [JsonIgnore]
     public SandboxMapBaseObject Object { get; private set; }
 
+    public Cell(Coordinates coordinates)
+    {
+        Coordinates = coordinates;
+    }
+
     public void PlaceObjectToThisCell(SandboxMapBaseObject mapObject)
     {
         Object = mapObject;

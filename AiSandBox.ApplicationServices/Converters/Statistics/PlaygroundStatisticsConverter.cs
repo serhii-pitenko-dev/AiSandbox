@@ -14,7 +14,7 @@ public class PlaygroundStatisticsConverter
             var result = InitializeStatistics(playground);
 
             var heroIndex = Array.FindIndex(result.AgentsStatistics, 
-                e => e.CellType == SharedBaseTypes.ValueObjects.EObjectType.Hero);
+                e => e.CellType == SharedBaseTypes.ValueObjects.ObjectType.Hero);
 
             var hero = result.AgentsStatistics[heroIndex];
             result.AgentsStatistics[heroIndex] = hero with 
@@ -80,7 +80,6 @@ public class PlaygroundStatisticsConverter
         
         return playgroundStatistics;
     }
-
 
     private PlayGroundStatistics InitializeStatistics(StandardPlayground playground)
     {

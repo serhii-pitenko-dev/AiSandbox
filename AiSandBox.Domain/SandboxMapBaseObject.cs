@@ -9,9 +9,12 @@ public abstract class SandboxMapBaseObject
     [JsonInclude]
     private Cell Cell { get; set; }
 
-    public EObjectType Type { get; protected set; }
+    public ObjectType Type { get; protected set; }
     public Guid Id { get; private set; }
-    
+
+    /// <summary>
+    /// Object's coordinates on the map
+    /// </summary>
     [JsonInclude]
     public Coordinates Coordinates 
     {
@@ -30,7 +33,7 @@ public abstract class SandboxMapBaseObject
     }
 
     // Primary constructor
-    protected SandboxMapBaseObject(EObjectType type, Cell cell, Guid id)
+    protected SandboxMapBaseObject(ObjectType type, Cell cell, Guid id)
     {
         Type = type;
         Cell = cell;

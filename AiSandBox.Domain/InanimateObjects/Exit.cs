@@ -5,7 +5,7 @@ namespace AiSandBox.Domain.InanimateObjects;
 
 public class Exit : SandboxMapBaseObject
 {
-    public Exit(Cell cell, Guid id) : base(EObjectType.Exit, cell, id) 
+    public Exit(Cell cell, Guid id) : base(ObjectType.Exit, cell, id) 
     { 
         Transparent = true;
     }

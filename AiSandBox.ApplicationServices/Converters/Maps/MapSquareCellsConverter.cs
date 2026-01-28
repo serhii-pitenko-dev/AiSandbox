@@ -157,7 +157,7 @@ public static class MapSquareCellsConverter
         foreach (var (agentId, effects) in agentEffectsMap[coordinates])
         {
             // Determine agent type based on ID
-            EObjectType agentType = DetermineAgentType(agentId, playground);
+            ObjectType agentType = DetermineAgentType(agentId, playground);
 
             agentEffectsList.Add(new AgentEffect(agentId, agentType, effects.ToArray()));
         }
@@ -165,15 +165,15 @@ public static class MapSquareCellsConverter
         return agentEffectsList.ToArray();
     }
 
-    private static EObjectType DetermineAgentType(Guid agentId, StandardPlayground playground)
+    private static ObjectType DetermineAgentType(Guid agentId, StandardPlayground playground)
     {
         if (playground.Hero?.Id == agentId)
-            return EObjectType.Hero;
+            return ObjectType.Hero;
 
         if (playground.Enemies.Any(e => e.Id == agentId))
-            return EObjectType.Enemy;
+            return ObjectType.Enemy;
 
         // Default fallback (shouldn't happen in normal cases)
-        return EObjectType.Empty;
+        return ObjectType.Empty;
     }
 }

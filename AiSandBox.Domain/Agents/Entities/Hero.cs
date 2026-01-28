@@ -7,12 +7,12 @@ public class Hero : Agent
 {
     public Hero(Cell cell,
         InitialAgentCharacters characters,
-        Guid id) : base(EObjectType.Hero, characters, cell, id)
+        Guid id) : base(ObjectType.Hero, characters, cell, id)
     {
 
     }
 
-    public Hero() : base(EObjectType.Hero, new InitialAgentCharacters(),  null, new Guid())
+    public Hero() : base(ObjectType.Hero, new InitialAgentCharacters(),  null, new Guid())
     { }
 
     public Hero Clone()

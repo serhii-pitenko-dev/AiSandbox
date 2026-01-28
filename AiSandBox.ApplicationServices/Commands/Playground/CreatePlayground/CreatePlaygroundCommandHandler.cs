@@ -16,7 +16,7 @@ public class CreatePlaygroundCommandHandler(
     {
         StandardPlayground playground = commandParameters.MapConfiguration.Type switch
         {
-            EMapType.Standard => playgroundFactory.CreateStandard(
+            MapType.Standard => playgroundFactory.CreateStandard(
                             new InitialAgentCharacters(
                                 speed: commandParameters.HeroConfiguration.Speed,
                                 sightRange: commandParameters.HeroConfiguration.SightRange,

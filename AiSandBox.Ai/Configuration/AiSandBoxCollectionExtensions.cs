@@ -6,15 +6,15 @@ namespace AiSandBox.Ai.Configuration;
 
 public static class AiSandBoxCollectionExtensions
 {
-    public static IServiceCollection AddAiSandBoxServices(this IServiceCollection services, EPresentationType presentationType)
+    public static IServiceCollection AddAiSandBoxServices(this IServiceCollection services, PresentationType presentationType)
     {
-        if (presentationType is EPresentationType.None)
+        if (presentationType is PresentationType.None)
         {
-            services.AddTransient<IAiActions, RandomActionsForSimulation>();
+            services.AddTransient<IAiActions, RandomActions>();
         }
         else
         {
-            services.AddTransient<IAiActions, RandomActionsForPresentation>();
+            services.AddTransient<IAiActions, RandomActions>();
         }
         
         return services;

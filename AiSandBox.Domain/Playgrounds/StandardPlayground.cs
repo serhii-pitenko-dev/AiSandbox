@@ -54,6 +54,7 @@ public class StandardPlayground
     public void PrepareAgentForTurnActions(Agent agent)
     {
         agent.GetReadyForNewTurn();
+        agent.ReCalculateAvailableActions();
     }
 
     public PlaygroundState GetCurrentState()
@@ -88,10 +89,10 @@ public class StandardPlayground
     /// <summary>
     /// Move agent and update vision
     /// </summary>
-    public void MoveObjectOnMap(Coordinates from, List<Coordinates> path)
+    public void MoveObjectOnMap(Coordinates from, Coordinates to)
     {
         var cell = _map.CellGrid[from.X, from.Y];
-        var targetCell = _map.MoveObject(from, path);
+        var targetCell = _map.MoveObject(from, to);
         if (targetCell.Object is Agent agent)
         {
             UpdateAgentVision(agent);
@@ -114,5 +115,19 @@ public class StandardPlayground
             throw new ArgumentOutOfRangeException($"Coordinates ({x}, {y}) are out of bounds.");
         
         return _map.CellGrid[x, y];
+    }
+
+    /// <summary>
+    /// Get all agents in the order they should act this turn. Hero first, then enemies by their order in turn queue.
+    /// </summary>
+    /// <returns>List of agents for the current turn.</returns>
+    public List<Agent> GetOrderedAgentsForTurn()
+    {
+        var agents = new List<Agent>();
+        if (Hero != null)
+            agents.Add(Hero);
+        agents.AddRange(Enemies.OrderBy(e => e.OrderInTurnQueue));
+
+        return agents;
     }
 }

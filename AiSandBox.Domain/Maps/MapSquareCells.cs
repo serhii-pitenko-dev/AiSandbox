@@ -24,10 +24,7 @@ public class MapSquareCells
         {
             for (int y = 0; y < Height; y++)
             {
-                Cell newCell = new Cell()
-                {
-                    Coordinates = new Coordinates(x, y),
-                };
+                Cell newCell = new Cell(new Coordinates(x, y));
                 EmptyCell emptyCell = new EmptyCell(newCell);
                 newCell.PlaceObjectToThisCell(emptyCell);
                 _cellGrid[x, y] = newCell;
@@ -35,16 +32,15 @@ public class MapSquareCells
         }
     }
 
-    internal Cell MoveObject(Coordinates from, List<Coordinates> path)
+    internal Cell MoveObject(Coordinates from, Coordinates to)
     {
-        Coordinates to = path.Last();
         Cell initialCell = _cellGrid[from.X, from.Y];
         Cell targetCell = _cellGrid[to.X, to.Y];
-        if (initialCell.Object.Type == EObjectType.Empty)
+        if (initialCell.Object.Type == ObjectType.Empty)
         {
             throw new InvalidOperationException("No object to move at the source coordinates.");
         }
-        if (targetCell.Object.Type != EObjectType.Empty)
+        if (targetCell.Object.Type != ObjectType.Empty)
         {
             throw new InvalidOperationException("Target cell is already occupied.");
         }
@@ -53,7 +49,7 @@ public class MapSquareCells
 
         if (targetCell.Object is Agent agent)
         {
-            agent.AddToPath(path);
+            agent.AgentWasMoved(to);
         }
 
         initialCell.PlaceObjectToThisCell(new EmptyCell(initialCell));
@@ -91,7 +87,7 @@ public class MapSquareCells
     internal void PlaceObject(SandboxMapBaseObject obj)
     {
         Cell targetCell = _cellGrid[obj.Coordinates.X, obj.Coordinates.Y];
-        if (targetCell.Object.Type != EObjectType.Empty)
+        if (targetCell.Object.Type != ObjectType.Empty)
         {
             throw new InvalidOperationException("Target cell is already occupied.");
         }

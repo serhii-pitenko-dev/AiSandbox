@@ -8,12 +8,12 @@ public class Enemy: Agent
     public Enemy(
         Cell cell,
         InitialAgentCharacters characters,
-        Guid id) : base(EObjectType.Enemy, characters, cell, id) 
+        Guid id) : base(ObjectType.Enemy, characters, cell, id) 
     {
 
     }
 
-    public Enemy(): base(EObjectType.Enemy, new InitialAgentCharacters(), null, new Guid())
+    public Enemy(): base(ObjectType.Enemy, new InitialAgentCharacters(), null, new Guid())
     { }
 
     public Enemy Clone()

@@ -6,6 +6,14 @@ namespace AiSandBox.Domain.Agents.Entities;
 
 public abstract class Agent: SandboxMapBaseObject
 {
+    /// <summary>
+    /// Define what is the number of actions are available for this agent
+    /// </summary>
+    [JsonInclude]
+    public List<AgentAction> AvailableActions { get; protected set; } = new List<AgentAction>();
+
+    public List<AgentAction> ExecutedActions { get; protected set; } = new List<AgentAction>();
+
     // Parameterless constructor for deserialization
     protected Agent() : base()
     {
@@ -14,7 +22,7 @@ public abstract class Agent: SandboxMapBaseObject
     [JsonInclude]
     public List<Cell> VisibleCells { get; protected set; } = new();
     public Agent(
-        EObjectType cellType,
+        ObjectType cellType,
         InitialAgentCharacters characters,
         Cell cell, 
         Guid id) : base(cellType, cell, id)
@@ -28,7 +36,7 @@ public abstract class Agent: SandboxMapBaseObject
     public List<Coordinates> PathToTarget { get; protected set; } = [];
 
     [JsonInclude]
-    public int Speed { get; protected set; }
+    public int Speed { get; private set; }
 
     [JsonInclude]
     public int SightRange { get; protected set; }
@@ -63,66 +71,105 @@ public abstract class Agent: SandboxMapBaseObject
         PathToTarget.Clear();
     }
 
-    public void AddToPath(List<Coordinates> coordinates)
+    /// <summary>
+    /// Performs the specified action for the agent.
+    /// <remarks>Agent cannot move itself, so only non-movement actions are handled here.</remarks>
+    /// </summary>
+    public virtual bool DoAction(AgentAction action, bool isActivated)
     {
-        PathToTarget.AddRange(coordinates);
-    }
-
-    public virtual List<EAction> ActivateAbilities(EAction[] abilities)
-    {
-        var activatedAbilities = new List<EAction>();
-
-        foreach (EAction ability in abilities)
+        switch (action)
         {
-            switch (ability)
-            {
-                case EAction.Run:
-                    if (IsRun)
-                        break;
-                    IsRun = true;
-                    Speed += 1;
-                    activatedAbilities.Add(ability);
-
+            case AgentAction.Run:
+                if (!isActivated)
+                {
+                    StopRunning();
                     break;
-            }
+                }
+                if (IsRun)
+                    break;
+                Run();
+                break;
+            case AgentAction.Move:
+                throw new InvalidOperationException("Agent cannot move itself. Movement should be handled externally.");
         }
 
-        return activatedAbilities;
-    }
-
-    public virtual List<EAction> DeActivateAbility(EAction[] abilities)
-    {
-        var deactivatedAbilities = new List<EAction>();
-
-        foreach (EAction ability in abilities)
-        {
-            switch (ability)
-            {
-                case EAction.Run:
-                    if (!IsRun)
-                        break;
-
-                    IsRun = false;
-                    Speed -= 1;
-                    deactivatedAbilities.Add(ability);
-
-                    break;
-            }
-        }
-
-        return deactivatedAbilities;    
+        return true;
     }
 
     public virtual void GetReadyForNewTurn()
     {
         ResetPath();
-
+        ReCalculateAvailableActions();
         //add current/started position to path
-        AddToPath(new List<Coordinates>() { Coordinates });
+        PathToTarget = new List<Coordinates>() { Coordinates };
     }
 
     public void SetOrderInTurnQueue(int order)
     {
         OrderInTurnQueue = order;
+    }
+
+    /// <summary>
+    /// Calculates and updates the set of available limited actions for the agent based on its current state.
+    /// </summary>
+    /// <remarks>At the beginning this method clears the existing limited actions and determines new ones based on the agent state </remarks>
+    public void ReCalculateAvailableActions()
+    {
+        AvailableActions.Clear();
+        AvailableActions.Add(AgentAction.Run);
+
+        int possibleMoves = Stamina >= Speed ? Speed : Stamina;
+        possibleMoves = IsRun ? possibleMoves * 2 : possibleMoves;
+        AvailableActions.AddRange(Enumerable.Repeat(AgentAction.Move, possibleMoves));
+    }
+
+    /// <summary>
+    /// Activate run ability on Agent
+    /// Increases available movements by double, depending on Stamina. 
+    /// If stamina is less than required for full run, adds as much as stamina allows.
+    /// </summary>
+    protected void Run()
+    {
+        IsRun = true;
+        UpdateActions(AgentAction.Run);
+        int avaliableBeforeRunMovements = AvailableActions.Where(a => a == AgentAction.Move).Count();
+        int afterRunMovements = avaliableBeforeRunMovements * 2;
+        int toAddIdeal = afterRunMovements - avaliableBeforeRunMovements;
+
+        // Add moverments after run but if stamina is less than required for full run, add as much as stamina allows
+        int toAdd = Stamina >= afterRunMovements ? toAddIdeal : (afterRunMovements - Stamina);
+        AvailableActions.AddRange(Enumerable.Repeat(AgentAction.Move, toAdd));
+    }
+
+    /// <summary>
+    /// Deactivate run ability on Agent
+    /// Decreases available movements by half.
+    /// </summary>
+    protected void StopRunning()
+    {
+        if (!IsRun)
+            return;
+        IsRun = false;
+        int runMovesToRemove = AvailableActions.Where(a => a == AgentAction.Move).Count() / 2;
+        for (int i = 0; i < runMovesToRemove; i++)
+        {
+            AvailableActions.Remove(AgentAction.Move);
+        }
+    }
+
+    /// <summary>
+    /// If agent moved, update its path and executed actions
+    /// </summary>
+    public void AgentWasMoved(Coordinates coordinates)
+    {
+        PathToTarget.Add(coordinates);
+
+        UpdateActions(AgentAction.Move);
+    }
+
+    protected void UpdateActions(AgentAction action)
+    {
+        AvailableActions.Remove(action);
+        ExecutedActions.Add(action);
     }
 }
