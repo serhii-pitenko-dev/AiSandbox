@@ -24,9 +24,15 @@ public class MessageBroker : IMessageBroker
 {
     private readonly ConcurrentDictionary<Type, List<Delegate>> _subscribers = new();
 
+    private readonly ConcurrentDictionary<Type, List<Delegate>> _subscribersOnResponse = new();
+
     public void Publish<TMessage>(TMessage message) where TMessage : notnull, Message
     {
         if (message == null) throw new ArgumentNullException(nameof(message));
+        if (message is Response)
+        {
+            PublishResponse((Response)(object)message);
+        }
 
         var messageType = message.GetType();
         if (_subscribers.TryGetValue(messageType, out var handlers))
@@ -35,7 +41,23 @@ public class MessageBroker : IMessageBroker
             {
                 foreach (var handler in handlers.ToList())
                 {
-                    ((Action<Message>)handler).Invoke(message);
+                    ((Action<TMessage>)handler).Invoke(message);
+                }
+            }
+        }
+    }
+
+    private void PublishResponse(Response message)
+    {
+        if (message == null) throw new ArgumentNullException(nameof(message));
+
+        if (_subscribersOnResponse.TryGetValue(typeof(Response), out var handlers))
+        {
+            lock (handlers)
+            {
+                foreach (var handler in handlers.ToList())
+                {
+                    ((Action<Response>)handler).Invoke(message);
                 }
             }
         }
@@ -45,12 +67,30 @@ public class MessageBroker : IMessageBroker
     {
         if (handler == null) throw new ArgumentNullException(nameof(handler));
 
-        var messageType = typeof(Message);
-        var handlers = _subscribers.GetOrAdd(messageType, _ => new List<Delegate>());
-        
-        lock (handlers)
+        var messageType = typeof(TMessage);
+        if (messageType == typeof(Response))
         {
-            handlers.Add(handler);
+            SubscribeResponse(handler);
+            return;
+        }
+
+        var standardHandlers = _subscribers.GetOrAdd(messageType, _ => new List<Delegate>());
+
+        lock (standardHandlers)
+        {
+            standardHandlers.Add(handler);
+        }
+    }
+
+    private void SubscribeResponse<TMessage>(Action<TMessage> handler)
+    {
+        if (handler == null) throw new ArgumentNullException(nameof(handler));
+        var messageType = typeof(Response);
+        var responseHandlers = _subscribersOnResponse.GetOrAdd(messageType, _ => new List<Delegate>());
+
+        lock (responseHandlers)
+        {
+            responseHandlers.Add(handler);
         }
     }
 
@@ -58,7 +98,7 @@ public class MessageBroker : IMessageBroker
     {
         if (handler == null) throw new ArgumentNullException(nameof(handler));
 
-        var messageType = typeof(Message);
+        var messageType = typeof(TMessage);
         if (_subscribers.TryGetValue(messageType, out var handlers))
         {
             lock (handlers)

@@ -71,39 +71,30 @@ public abstract class Executor: IExecutor
         // Load the created sandbox
         _playground = _playgroundRepository.LoadObject(sandboxId);
 
-        SubscribeOnAiMessages();
-
         // Invoke game started events for playground
-        StartSimulationPreparations();
-    }
-
-    protected void SubscribeOnAiMessages()
-    {
-        _messageBroker.Subscribe<AiReadyToActionsResponse>(OnAiReadyToActionsEvent);
+        await StartSimulationPreparations();
     }
 
     /// <summary>
     /// On start simulation actions
     /// </summary>
-    protected virtual void StartSimulationPreparations()
+    protected virtual async Task StartSimulationPreparations()
     {
         //Lets save immidiately the initial state
         Save();
 
-        // Initialize AI module
+        // Initialize AI modulef
         _aiActions.Initialize();
 
         // Let all agents look around initially
         _playground.LookAroundEveryone();
 
         // Notify everyone that the simulation has started
-        _messageBroker.Publish(new GameStartedEvent(Guid.NewGuid(), _playground.Id));
-    }
+       var result = 
+            await _brokerRpcClient.RequestAsync<GameStartedEvent, AiReadyToActionsResponse>(new GameStartedEvent(Guid.NewGuid(), _playground.Id));
 
-    protected void OnAiReadyToActionsEvent(AiReadyToActionsResponse aiReadyEvent)
-    {
         CancellationToken cancellationToken = new CancellationToken();
-        StartSimulation(cancellationToken).Wait();
+        await StartSimulation(cancellationToken);
     }
 
     protected async Task StartSimulation(CancellationToken cancellationToken)
@@ -124,10 +115,10 @@ public abstract class Executor: IExecutor
         while (_agentsToAct.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
         {
             var agent = _agentsToAct[0];
-
+            _playground.PrepareAgentForTurnActions(agent);
             while (agent.AvailableActions.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
             {
-                _playground.PrepareAgentForTurnActions(_agentsToAct[0]);
+                
                 AgentDecisionBaseResponse agentDecision = await SendAgentActionRequest(agent, _playground.Id, cancellationToken);
                 ApplyAgentAction(agentDecision);
             }

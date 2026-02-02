@@ -18,7 +18,6 @@ namespace AiSandBox.ConsolePresentation;
 
 public class ConsoleRunner : IConsoleRunner
 {
-    private readonly IAiActions _aiActions;
     private readonly IMessageBroker _messageBroker;
     private readonly IMapQueriesHandleService _mapQueries;
     private readonly ConsoleSize _consoleSize;
@@ -34,14 +33,12 @@ public class ConsoleRunner : IConsoleRunner
     public event Action<Guid>? ReadyForRendering;
     private MapLayoutResponse _fullMapLayout;
 
-
     public ConsoleRunner(
         IAiActions aiActions,
         IMessageBroker messageBroker,
         IMapQueriesHandleService mapQueries,
         IOptions<ConsoleSettings> consoleSettings)
     {
-        _aiActions = aiActions;
         _messageBroker = messageBroker;
         _mapQueries = mapQueries;
         _consoleSize = consoleSettings.Value.ConsoleSize;
@@ -62,7 +59,6 @@ public class ConsoleRunner : IConsoleRunner
         _messageBroker.Subscribe<HeroWonEvent>(OnGameWon);
         _messageBroker.Subscribe<OnBaseAgentActionEvent>(OnAgentActionEvent);
 
-
         // Cleanup
         _messageBroker.Unsubscribe<GameStartedEvent>(OnGameStarted);
         _messageBroker.Unsubscribe<TurnExecutedEvent>(OnTurnEnded);
@@ -70,7 +66,7 @@ public class ConsoleRunner : IConsoleRunner
         _messageBroker.Unsubscribe<HeroWonEvent>(OnGameWon);
         _messageBroker.Unsubscribe<OnBaseAgentActionEvent>(OnAgentActionEvent);
 
-        Console.ReadLine();
+        //Console.ReadLine();
     }
 
     private void InitializeConsole()

@@ -4,6 +4,7 @@ using AiSandBox.Domain.Statistics.Entities;
 using AiSandBox.Infrastructure.Configuration.Preconditions;
 using AiSandBox.Infrastructure.FileManager;
 using AiSandBox.Infrastructure.MemoryManager;
+using AiSandBox.SharedBaseTypes.AiContract.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,13 +21,14 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IMemoryDataManager<PlayGroundStatistics>, MemoryDataManager<PlayGroundStatistics>>();
         services.AddSingleton<IMemoryDataManager<InitialPreconditions>, MemoryDataManager<InitialPreconditions>>();
         services.AddSingleton<IMemoryDataManager<AgentStatistics>, MemoryDataManager<AgentStatistics>>();
+        services.AddSingleton<IMemoryDataManager<AgentState>, MemoryDataManager<AgentState>>();
 
         // Add File Data Managers - Changed from Map to Sandbox
         services.AddSingleton<IFileDataManager<StandardPlayground>, FileDataManager<StandardPlayground>>();
         services.AddSingleton<IFileDataManager<AgentStatistics>, FileDataManager<AgentStatistics>>();
         services.AddSingleton<IFileDataManager<PlayGroundStatistics>, FileDataManager<PlayGroundStatistics>>();
         services.AddSingleton<IFileDataManager<StandardPlayground>, FileDataManager<StandardPlayground>>();
-
+        services.AddSingleton<IFileDataManager<AgentState>, FileDataManager<AgentState>>();
 
         return services;
     }

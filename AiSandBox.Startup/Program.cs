@@ -1,5 +1,7 @@
 ﻿using AiSandBox.Ai.Configuration;
 using AiSandBox.ApplicationServices.Configuration;
+using AiSandBox.ApplicationServices.Runner;
+using AiSandBox.Common.Extensions;
 using AiSandBox.ConsolePresentation.Configuration;
 using AiSandBox.Domain.Configuration;
 using AiSandBox.Infrastructure.Configuration;
@@ -9,7 +11,6 @@ using ConsolePresentation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using AiSandBox.Common.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,10 +39,14 @@ if (isWebApiEnabled)
 var app = builder.Build();
 
 if (presentationType == PresentationType.Console)
+{
     app.Services.GetRequiredService<IConsoleRunner>().Run();
+    await app.Services.GetRequiredService<IExecutorForPresentation>().Run();
+}
+    
 
 if (isWebApiEnabled)
 {
     app.MapControllers();
-    app.Run();
+    await app.RunAsync();
 }

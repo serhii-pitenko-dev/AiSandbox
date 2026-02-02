@@ -1,5 +1,4 @@
-﻿using AiSandBox.Common.MessageBroker.MessageTypes;
-using AiSandBox.SharedBaseTypes.MessageTypes;
+﻿using AiSandBox.SharedBaseTypes.MessageTypes;
 using System.Collections.Concurrent;
 
 namespace AiSandBox.Common.MessageBroker;
@@ -16,7 +15,7 @@ public class BrokerRpcClient : IBrokerRpcClient, IDisposable
     public BrokerRpcClient(IMessageBroker broker)
     {
         _broker = broker ?? throw new ArgumentNullException(nameof(broker));
-        _sub = SubscribeToResponses();
+        _sub = Subscribe();
     }
     /// <summary>
     /// Sends a request message and waits for a response asynchronously using a correlation-based RPC pattern.
@@ -30,8 +29,7 @@ public class BrokerRpcClient : IBrokerRpcClient, IDisposable
         if (request is not TRequest)
             throw new InvalidOperationException($"Request type mismatch. Expected {typeof(TRequest).Name}, got {request.GetType().Name}");
 
-        var correlationId = Guid.NewGuid();
-        request = request with { Id = correlationId }; // Using record 'with' expression
+        var correlationId = request.Id;
         var tcs = new TaskCompletionSource<Response>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         // Register the TaskCompletionSource so OnResponse can complete it when the correlated response arrives
@@ -60,24 +58,24 @@ public class BrokerRpcClient : IBrokerRpcClient, IDisposable
         }
     }
 
-    private IDisposable SubscribeToResponses()
+    private IDisposable Subscribe()
     {
         // Subscribe to all responses
-        Action<Message> handler = OnResponse;
+        Action<Response> handler = OnResponse;
         _broker.Subscribe(handler);
 
         return new UnsubscribeToken(_broker, handler);
     }
 
-    private void OnResponse(Message resp)
+    private void OnResponse<TResponse>(TResponse resp)  where TResponse : notnull, Response 
     {
         if (resp is not Response response)
             throw new InvalidOperationException("Received message is not of type Response.");
 
-        if (resp?.Id == null)
+        if (resp?.CorrelationId == null)
             throw new InvalidOperationException("Response correlation ID is missing.");
 
-        if (_pending.TryRemove(response.Id, out var tcs))
+        if (_pending.TryRemove(response.CorrelationId, out var tcs))
         {
             tcs.SetResult(response); // ← Completes the waiting Task
         }
@@ -96,17 +94,32 @@ public class BrokerRpcClient : IBrokerRpcClient, IDisposable
         _pending.Clear();
     }
 
+    /// <summary>
+    /// A disposable token that encapsulates the unsubscription logic for a message broker handler.
+    /// When disposed, it automatically unsubscribes the handler from the broker, ensuring proper cleanup
+    /// and preventing memory leaks by breaking the reference chain between the broker and the handler.
+    /// </summary>
     private class UnsubscribeToken : IDisposable
     {
         private readonly IMessageBroker _broker;
-        private readonly Action<Message> _handler;
+        private readonly Action<Response> _handler;
 
-        public UnsubscribeToken(IMessageBroker broker, Action<Message> handler)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UnsubscribeToken"/> class.
+        /// </summary>
+        /// <param name="broker">The message broker from which to unsubscribe.</param>
+        /// <param name="handler">The handler to unsubscribe when this token is disposed.</param>
+        public UnsubscribeToken(IMessageBroker broker, Action<Response> handler)
         {
             _broker = broker;
             _handler = handler;
         }
 
+        /// <summary>
+        /// Unsubscribes the handler from the message broker, releasing the subscription.
+        /// This ensures that the handler will no longer receive messages and allows
+        /// the handler and its associated objects to be garbage collected.
+        /// </summary>
         public void Dispose()
         {
             _broker.Unsubscribe(_handler);

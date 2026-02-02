@@ -1,6 +1,6 @@
 ﻿namespace AiSandBox.ApplicationServices.Runner;
 
-interface IExecutorForPresentation: IExecutor
+public interface IExecutorForPresentation: IExecutor
 {
 }
 

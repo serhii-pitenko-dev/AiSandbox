@@ -17,7 +17,7 @@ public class RandomActions : IAiActions
     private readonly IMessageBroker _messageBroker;
     protected IMemoryDataManager<AgentState> _agentStateMemoryRepository;
 
-    protected RandomActions(IMessageBroker messageBroker, IMemoryDataManager<AgentState> agentStateMemoryRepository)
+    public RandomActions(IMessageBroker messageBroker, IMemoryDataManager<AgentState> agentStateMemoryRepository)
     {
         _messageBroker = messageBroker;
         _agentStateMemoryRepository = agentStateMemoryRepository;

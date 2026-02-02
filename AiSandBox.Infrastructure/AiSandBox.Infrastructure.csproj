@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AiSandBox.Common\AiSandBox.Common.csproj" />
     <ProjectReference Include="..\AiSandBox.Domain\AiSandBox.Domain.csproj" />
     <ProjectReference Include="..\Statistics\AiSandBox.Statistics.csproj" />
   </ItemGroup>
