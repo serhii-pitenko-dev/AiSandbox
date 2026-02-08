@@ -6,9 +6,9 @@ namespace AiSandBox.Domain.Agents.Factories;
 
 public class HeroFactory: IHeroFactory
 {
-    public Hero CreateHero(Cell cell, InitialAgentCharacters characters)
+    public Hero CreateHero(InitialAgentCharacters characters)
     {
-        return new Hero(cell, characters, Guid.NewGuid());
+        return new Hero(characters, Guid.NewGuid());
     }
 }
 

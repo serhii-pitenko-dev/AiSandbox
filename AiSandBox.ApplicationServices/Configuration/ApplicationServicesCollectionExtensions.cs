@@ -1,12 +1,11 @@
 ﻿using AiSandBox.ApplicationServices.Commands.Playground;
 using AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
-using AiSandBox.ApplicationServices.Commands.Playground.InitializePlaygroundFromFile;
 using AiSandBox.ApplicationServices.Queries.Maps;
 using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
-using AiSandBox.ApplicationServices.Queries.Maps.GetMapInitialPeconditions;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 using AiSandBox.ApplicationServices.Runner;
-using AiSandBox.Domain.State;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Infrastructure.FileManager;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,17 +17,16 @@ public static class ApplicationServicesCollectionExtensions
     {
         // Map Commands
         services.AddScoped<ICreatePlaygroundCommandHandler, CreatePlaygroundCommandHandler>();
-        services.AddScoped<IInitializePlaygroundFromFileCommandHandler, InitializePlaygroundFromFileCommandHandler>();
         services.AddScoped<IPlaygroundCommandsHandleService, PlaygroundCommandsHandleService>();
 
         // Map Queries
         services.AddScoped<IMapQueriesHandleService, MapQueriesHandleService>();
-        services.AddScoped<IInitialPreconditions, InitialPreconditionsHandle>();
         services.AddScoped<IMapLayout, GetMapLayoutHandle>();
         services.AddScoped<IAffectedCells, GetAffectedCellsHandle>();
 
         services.AddSingleton<IFileDataManager<MapLayoutResponse>, FileDataManager<MapLayoutResponse>>();
-        services.AddSingleton<IFileDataManager<PlaygroundHistoryData>, FileDataManager<PlaygroundHistoryData>>();
+        services.AddSingleton<IFileDataManager<StandardPlaygroundState>, FileDataManager<StandardPlaygroundState>>();
+        services.AddSingleton<IStandardPlaygroundMapper, StandardPlaygroundMapper>();
 
         services.AddScoped<IExecutorForPresentation, ExecutorForPresentation>();
 

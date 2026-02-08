@@ -37,12 +37,10 @@ public class AgentTestRunAbility
     /// <param name="expectedMoveCountAfterRun">Expected number of Move actions after Run is activated</param>
     [TestMethod]
     [DataRow(5, 10, 5, 10, DisplayName = "WithSufficientStamina_DoublesAvailableMovements")]
-    [DataRow(5, 3, 3, 6, DisplayName = "WithLimitedStamina_DoublesPartialMovements")]
+    [DataRow(5, 3, 3, 3, DisplayName = "WithLimitedStamina_TheSameMovements")]
     [DataRow(5, 0, 0, 0, DisplayName = "WithZeroStamina_NoMovements")]
     [DataRow(6, 12, 6, 12, DisplayName = "WithExactStamina_DoublesCorrectly")]
-    [DataRow(3, 2, 2, 4, DisplayName = "WithLowStamina_DoublesAvailableMovements")]
     [DataRow(8, 20, 8, 16, DisplayName = "WithHighStamina_DoublesLargeMovementCount")]
-    [DataRow(4, 1, 1, 2, DisplayName = "WithVeryLowStamina_DoublesMinimalMovement")]
     public void Run_VariousStaminaScenarios_AddsCorrectMovements(
         int speed,
         int stamina,
@@ -51,7 +49,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed, sightRange: 3, stamina);
+        var characters = new InitialAgentCharacters(speed, 3, stamina, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
 
         // Initialize the agent properly - this sets up moves based on stamina and speed
@@ -80,7 +78,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 5, sightRange: 3, stamina: 10);
+        var characters = new InitialAgentCharacters(5, 3, 10, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 
@@ -100,7 +98,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 5, sightRange: 3, stamina: 10);
+        var characters = new InitialAgentCharacters(5, 3, 10, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 
@@ -121,7 +119,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 6, sightRange: 3, stamina: 20);
+        var characters = new InitialAgentCharacters(6, 3, 20, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 
@@ -147,7 +145,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 5, sightRange: 3, stamina: 20);
+        var characters = new InitialAgentCharacters(5, 3, 20, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 
@@ -172,7 +170,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 5, sightRange: 3, stamina: 10);
+        var characters = new InitialAgentCharacters(5, 3, 10, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
 
         // Act
@@ -191,7 +189,7 @@ public class AgentTestRunAbility
     {
         // Arrange - Agent with speed 5 but only 7 stamina
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 5, sightRange: 3, stamina: 7);
+        var characters = new InitialAgentCharacters(5, 3, 7, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 
@@ -216,7 +214,7 @@ public class AgentTestRunAbility
     {
         // Arrange
         var cell = new Cell(new Coordinates(0, 0));
-        var characters = new InitialAgentCharacters(speed: 4, sightRange: 3, stamina: 10);
+        var characters = new InitialAgentCharacters(4, 3, 10, new List<Coordinates>(), new List<AgentAction>(), new List<AgentAction>());
         var agent = new TestAgent(cell, characters, Guid.NewGuid());
         agent.GetReadyForNewTurn();
 

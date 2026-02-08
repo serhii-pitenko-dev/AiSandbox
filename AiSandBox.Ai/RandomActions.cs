@@ -15,9 +15,9 @@ public class RandomActions : IAiActions
 {
     private readonly Random _random = new();
     private readonly IMessageBroker _messageBroker;
-    protected IMemoryDataManager<AgentState> _agentStateMemoryRepository;
+    protected IMemoryDataManager<AgentStateForAIDecision> _agentStateMemoryRepository;
 
-    public RandomActions(IMessageBroker messageBroker, IMemoryDataManager<AgentState> agentStateMemoryRepository)
+    public RandomActions(IMessageBroker messageBroker, IMemoryDataManager<AgentStateForAIDecision> agentStateMemoryRepository)
     {
         _messageBroker = messageBroker;
         _agentStateMemoryRepository = agentStateMemoryRepository;
@@ -38,12 +38,12 @@ public class RandomActions : IAiActions
         });
     }
 
-    private AgentDecisionBaseResponse HandleAgentActionMessage(AgentState agent, Guid correlationId)
+    private AgentDecisionBaseResponse HandleAgentActionMessage(AgentStateForAIDecision agent, Guid correlationId)
     {
         return Action(agent, correlationId);
     }
 
-    private AgentDecisionBaseResponse Action(AgentState agent, Guid correlationId)
+    private AgentDecisionBaseResponse Action(AgentStateForAIDecision agent, Guid correlationId)
     {
         var action = agent.AvailableLimitedActions[Random.Shared.Next(agent.AvailableLimitedActions.Count)];
         switch (action)
@@ -51,11 +51,9 @@ public class RandomActions : IAiActions
             case AgentAction.Move:
                 // Calculate the path without modifying the agent
                 return CalculatePath(agent, correlationId);
-                break;
             case AgentAction.Run:
                 // Randomly decide whether to use abilities
                 return UseAbilities(agent, action, correlationId);
-                break;
             default:
                 break;
         }
@@ -63,7 +61,7 @@ public class RandomActions : IAiActions
         throw new NotImplementedException($"Action {action} is not implemented in RandomActions AI.");
     }
 
-    private AgentDecisionBaseResponse UseAbilities(AgentState agentState, AgentAction ability, Guid correlationId)
+    private AgentDecisionBaseResponse UseAbilities(AgentStateForAIDecision agentState, AgentAction ability, Guid correlationId)
     {
         bool isActivated = agentState.IsRun;
         bool isSuccess = false;
@@ -95,7 +93,7 @@ public class RandomActions : IAiActions
             isSuccess);
     }
 
-    private AgentDecisionMoveResponse CalculatePath(AgentState agentState, Guid correlationId)
+    private AgentDecisionMoveResponse CalculatePath(AgentStateForAIDecision agentState, Guid correlationId)
     {
         // Get random number of moves based on agent's speed
         int numberOfMoves = _random.Next(0, agentState.Speed + 1);
@@ -112,7 +110,7 @@ public class RandomActions : IAiActions
             IsSuccess: true);
     }
 
-    private Coordinates CalculateNextMove(AgentState agentState, Coordinates currentPosition)
+    private Coordinates CalculateNextMove(AgentStateForAIDecision agentState, Coordinates currentPosition)
     {
         if (agentState.VisibleCells.Count == 0)
         {

@@ -2,7 +2,6 @@
 using AiSandBox.Domain.Agents.Services.Vision;
 using AiSandBox.Domain.InanimateObjects;
 using AiSandBox.Domain.Maps;
-using AiSandBox.Domain.State;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Domain.Playgrounds;
@@ -18,8 +17,6 @@ public class StandardPlayground
     public int MapWidth => _map.Width;
     public int MapHeight => _map.Height;
     public int MapArea => _map.Area;
-    public bool IsDebugMode { get; set; } = false;
-
     private readonly IVisibilityService _visibilityService;
     private readonly List<Block> _blocks = [];
     private readonly List<Enemy> _enemies = [];
@@ -57,33 +54,28 @@ public class StandardPlayground
         agent.ReCalculateAvailableActions();
     }
 
-    public PlaygroundState GetCurrentState()
-    {
-        return new PlaygroundState(Turn, Id, Hero, Enemies.ToList());
-    }
-
-    public void PlaceHero(Hero hero)
+    public void PlaceHero(Hero hero, Coordinates coordinates)
     {
         Hero = hero;
-        _map.PlaceObject(hero);
+        _map.PlaceObject(hero, coordinates);
     }
 
-    public void PlaceEnemy(Enemy enemy)
+    public void PlaceEnemy(Enemy enemy, Coordinates coordinates)
     {
         _enemies.Add(enemy);
-        _map.PlaceObject(enemy);
+        _map.PlaceObject(enemy, coordinates);
     }
 
-    public void PlaceExit(Exit exit)
+    public void PlaceExit(Exit exit, Coordinates coordinates)
     {
         Exit = exit;
-        _map.PlaceObject(exit);
+        _map.PlaceObject(exit, coordinates);
     }
 
-    public void AddBlock(Block block)
+    public void AddBlock(Block block, Coordinates coordinates)
     {
         _blocks.Add(block);
-        _map.PlaceObject(block);
+        _map.PlaceObject(block, coordinates);
     }
 
     /// <summary>

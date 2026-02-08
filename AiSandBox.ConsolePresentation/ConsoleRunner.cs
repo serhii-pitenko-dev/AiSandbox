@@ -2,13 +2,14 @@
 using AiSandBox.ApplicationServices.Queries.Map.Entities;
 using AiSandBox.ApplicationServices.Queries.Maps;
 using AiSandBox.ApplicationServices.Queries.Maps.GetAffectedCells;
-using AiSandBox.ApplicationServices.Queries.Maps.GetMapInitialPeconditions;
 using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
 using AiSandBox.Common.MessageBroker.Contracts.CoreServicesContract.Events;
 using AiSandBox.Common.MessageBroker.Contracts.GlobalMessagesContract.Events.Lost;
 using AiSandBox.Common.MessageBroker.Contracts.GlobalMessagesContract.Events.Win;
 using AiSandBox.ConsolePresentation.Settings;
+using AiSandBox.Infrastructure.FileManager;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 using ConsolePresentation;
 using Microsoft.Extensions.Options;
@@ -25,19 +26,21 @@ public class ConsoleRunner : IConsoleRunner
     private readonly int _actionTimeout;
     private Dictionary<ObjectType, string> _cellData = [];
     private Guid _playgroundId;
-    private PreconditionsResponse? _preconditionsResponse;
     private int _mapRenderStartRow = 7; // Row where map rendering starts
     private int _mapWidth;
     private int _mapHeight;
     private List<string> _eventMessages = [];
     public event Action<Guid>? ReadyForRendering;
     private MapLayoutResponse _fullMapLayout;
+    private readonly IFileDataManager<StandardPlaygroundState> _playgroundStateFileRepository;
+    private StandardPlaygroundState _standardPlaygroundState;
 
     public ConsoleRunner(
         IAiActions aiActions,
         IMessageBroker messageBroker,
         IMapQueriesHandleService mapQueries,
-        IOptions<ConsoleSettings> consoleSettings)
+        IOptions<ConsoleSettings> consoleSettings,
+        IFileDataManager<StandardPlaygroundState> playgroundStateFileRepository)
     {
         _messageBroker = messageBroker;
         _mapQueries = mapQueries;
@@ -45,6 +48,7 @@ public class ConsoleRunner : IConsoleRunner
         _consoleColorScheme = consoleSettings.Value.ColorScheme;
         _actionTimeout = consoleSettings.Value.ActionTimeout;
         _fullMapLayout = new MapLayoutResponse(-1, new MapCell[0, 0]);
+        _playgroundStateFileRepository = playgroundStateFileRepository;
     }
 
     public void Run()
@@ -87,6 +91,9 @@ public class ConsoleRunner : IConsoleRunner
         _fullMapLayout = _mapQueries.MapLayoutQuery.GetFromMemory(_playgroundId);
         _mapWidth = _fullMapLayout.Cells.GetLength(0);
         _mapHeight = _fullMapLayout.Cells.GetLength(1);
+
+        _standardPlaygroundState = _playgroundStateFileRepository.LoadObjectAsync(_playgroundId).Result;
+
         RenderFullMap(_fullMapLayout);
     }
 
@@ -243,13 +250,12 @@ public class ConsoleRunner : IConsoleRunner
 
     private void RenderInitialGameInfo()
     {
-        _preconditionsResponse = _mapQueries.MapInitialPreconditionsQuery.Get(_playgroundId);
 
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
         WriteSysInfoLine($"Map initialized with ID: {_playgroundId}");
-        WriteSysInfoLine($"Width: {_preconditionsResponse.Width}; Height: {_preconditionsResponse.Height}; Area: {_preconditionsResponse.Area}; Percent of blocks: {_preconditionsResponse.PercentOfBlocks}; Percent of enemies {_preconditionsResponse.PercentOfEnemies}");
-        WriteSysInfoLine($"Initial elements count: blocks - {_preconditionsResponse.BlocksCount}; enemy - {_preconditionsResponse.EnemiesCount}");
+        WriteSysInfoLine($"Width: {_standardPlaygroundState.Map.Width}; Height: {_standardPlaygroundState.Map.Height}; Area: {_standardPlaygroundState.Map.Width * _standardPlaygroundState.Map.Height}; Percent of blocks: {_standardPlaygroundState.Blocks.Count / (double)(_standardPlaygroundState.Map.Width * _standardPlaygroundState.Map.Height):P}; Percent of enemies {_standardPlaygroundState.Enemies.Count / (double)(_standardPlaygroundState.Map.Width * _standardPlaygroundState.Map.Height):P}");
+        WriteSysInfoLine($"Initial elements count: blocks - {_standardPlaygroundState.Blocks.Count}; enemy - {_standardPlaygroundState.Enemies.Count}");
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
     }

@@ -1,16 +1,16 @@
-﻿namespace AiSandBox.Domain.Agents.Entities;
+﻿using AiSandBox.SharedBaseTypes.ValueObjects;
 
-public struct InitialAgentCharacters 
-{
-    public int Speed { get; private init; }
-    public int SightRange { get; private init; }
-    public int Stamina { get; private init; }
+namespace AiSandBox.Domain.Agents.Entities;
 
-    public InitialAgentCharacters(int speed, int sightRange, int stamina)
-    {
-        Speed = speed;
-        SightRange = sightRange;
-        Stamina = stamina;
-    }
-}
+public record struct InitialAgentCharacters(
+    int Speed,
+    int SightRange,
+    int Stamina,
+    List<Coordinates> PathToTarget,
+    List<AgentAction> AgentActions,
+    List<AgentAction> ExecutedActions,
+    bool isRun = false,
+    int orderInTurnQueue = 0);
+
+
 

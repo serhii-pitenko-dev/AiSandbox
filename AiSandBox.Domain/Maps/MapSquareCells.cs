@@ -84,9 +84,9 @@ public class MapSquareCells
         return result;
     }
 
-    internal void PlaceObject(SandboxMapBaseObject obj)
+    internal void PlaceObject(SandboxMapBaseObject obj, Coordinates coordinates)
     {
-        Cell targetCell = _cellGrid[obj.Coordinates.X, obj.Coordinates.Y];
+        Cell targetCell = _cellGrid[coordinates.X, coordinates.Y];
         if (targetCell.Object.Type != ObjectType.Empty)
         {
             throw new InvalidOperationException("Target cell is already occupied.");

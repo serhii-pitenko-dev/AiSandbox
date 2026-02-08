@@ -1,6 +1,8 @@
 ﻿using AiSandBox.Ai.AgentActions;
 using AiSandBox.ApplicationServices.Commands.Playground;
 using AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
 using AiSandBox.Common.MessageBroker.Contracts.AiContract.Commands;
 using AiSandBox.Common.MessageBroker.Contracts.AiContract.Responses;
@@ -10,7 +12,6 @@ using AiSandBox.Common.MessageBroker.Contracts.GlobalMessagesContract.Events.Win
 using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Maps;
 using AiSandBox.Domain.Playgrounds;
-using AiSandBox.Domain.State;
 using AiSandBox.Domain.Statistics.Entities;
 using AiSandBox.Infrastructure.Configuration.Preconditions;
 using AiSandBox.Infrastructure.FileManager;
@@ -31,14 +32,15 @@ public abstract class Executor: IExecutor
 {
     private readonly IPlaygroundCommandsHandleService _playgroundCommands;
     private readonly IMemoryDataManager<StandardPlayground> _playgroundRepository;
-    private readonly IFileDataManager<PlaygroundHistoryData> _playgroundHistoryDataFileRepository;
     private readonly SandBoxConfiguration _configuration;
     protected readonly IMessageBroker _messageBroker;
     protected StandardPlayground _playground;
     protected List<Agent> _agentsToAct = new();
-    protected IMemoryDataManager<AgentState> _agentStateMemoryRepository;
+    protected IMemoryDataManager<AgentStateForAIDecision> _agentStateMemoryRepository;
     protected IBrokerRpcClient _brokerRpcClient;
     protected IAiActions _aiActions;
+    protected IStandardPlaygroundMapper _standardPlaygroundMapper;
+    protected IFileDataManager<StandardPlaygroundState> _playgroundStateFileRepository;
 
     private SandboxStatus sandboxStatus;
 
@@ -49,23 +51,24 @@ public abstract class Executor: IExecutor
         IOptions<SandBoxConfiguration> configuration,
         IMemoryDataManager<PlayGroundStatistics> statisticsMemoryRepository,
         IFileDataManager<PlayGroundStatistics> statisticsFileRepository,
-        IFileDataManager<StandardPlayground> playgroundFileRepository,
-        IFileDataManager<PlaygroundHistoryData> playgroundHistoryDataFileRepository,
-        IMemoryDataManager<AgentState> agentStateMemoryRepository,
+        IFileDataManager<StandardPlaygroundState> playgroundStateFileRepository,
+        IMemoryDataManager<AgentStateForAIDecision> agentStateMemoryRepository,
         IMessageBroker messageBroker,
-        IBrokerRpcClient brokerRpcClient)
+        IBrokerRpcClient brokerRpcClient,
+        IStandardPlaygroundMapper standardPlaygroundMapper)
     {
         _playgroundCommands = mapCommands;
         _playgroundRepository = sandboxRepository;
         _configuration = configuration.Value;
-        _playgroundHistoryDataFileRepository = playgroundHistoryDataFileRepository;
         _agentStateMemoryRepository = agentStateMemoryRepository;
         _messageBroker = messageBroker;
         _brokerRpcClient = brokerRpcClient;
         _aiActions = aiActions;
+        _standardPlaygroundMapper = standardPlaygroundMapper;
+        _playgroundStateFileRepository = playgroundStateFileRepository;
     }
 
-    public async Task Run()
+    public async Task RunAsync()
     {
         // Create standard map/sandbox and save it
         var sandboxId = _playgroundCommands.CreatePlaygroundCommand.Handle(new CreatePlaygroundCommandParameters(
@@ -78,17 +81,14 @@ public abstract class Executor: IExecutor
         _playground = _playgroundRepository.LoadObject(sandboxId);
 
         // Invoke game started events for playground
-        await StartSimulationPreparations();
+        await StartSimulationPreparationsAsync();
     }
 
     /// <summary>
     /// On start simulation actions
     /// </summary>
-    protected virtual async Task StartSimulationPreparations()
+    protected virtual async Task StartSimulationPreparationsAsync()
     {
-        //Lets save immidiately the initial state
-        Save();
-
         // Initialize AI modulef
         _aiActions.Initialize();
 
@@ -100,21 +100,31 @@ public abstract class Executor: IExecutor
             await _brokerRpcClient.RequestAsync<GameStartedEvent, AiReadyToActionsResponse>(new GameStartedEvent(Guid.NewGuid(), _playground.Id));
 
         CancellationToken cancellationToken = new CancellationToken();
-        await StartSimulation(cancellationToken);
+        try
+        {
+            await StartSimulationAsync(cancellationToken);
+        }
+        catch (Exception)
+        {
+            await SaveAsync();
+            throw;
+        }
+
     }
 
-    protected async Task StartSimulation(CancellationToken cancellationToken)
+    protected async Task StartSimulationAsync(CancellationToken cancellationToken)
     {
+        await SaveAsync();
         while (sandboxStatus == SandboxStatus.InProgress)
         {
             if (_playground.Turn >= _configuration.MaxTurns)
                 _messageBroker.Publish(new HeroLostEvent(Guid.NewGuid(), _playground.Id, LostReason.MaxTurnsReached));
             
-            await ExecuteTurn(cancellationToken);
+            await ExecuteTurnAsync(cancellationToken);
         }
     }
 
-    private async Task ExecuteTurn(CancellationToken cancellationToken)
+    private async Task ExecuteTurnAsync(CancellationToken cancellationToken)
     {
         _agentsToAct = _playground.GetOrderedAgentsForTurn();
 
@@ -125,7 +135,7 @@ public abstract class Executor: IExecutor
             while (agent.AvailableActions.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
             {
                 
-                AgentDecisionBaseResponse agentDecision = await SendAgentActionRequest(agent, _playground.Id, cancellationToken);
+                AgentDecisionBaseResponse agentDecision = await SendAgentActionRequestAsync(agent, _playground.Id, cancellationToken);
                 ApplyAgentAction(agentDecision);
 
                 #if CONSOLE_PRESENTATION_DEBUG
@@ -137,7 +147,7 @@ public abstract class Executor: IExecutor
         }
     }
 
-    private async Task<AgentDecisionBaseResponse> SendAgentActionRequest(Agent agent, Guid playgroundId, CancellationToken cancellationToken)
+    private async Task<AgentDecisionBaseResponse> SendAgentActionRequestAsync(Agent agent, Guid playgroundId, CancellationToken cancellationToken)
     {
         // Convert agent data to message format
         var visibleCells = agent.VisibleCells.Select(cell => new VisibleCellData(
@@ -147,7 +157,7 @@ public abstract class Executor: IExecutor
             cell.Object.Transparent
         )).ToList();
 
-        var agentState = new AgentState(
+        var agentState = new AgentStateForAIDecision(
             playgroundId,
             agent.Id,
             agent.Type,
@@ -169,38 +179,23 @@ public abstract class Executor: IExecutor
                 new RequestAgentDecisionMakeCommand(Guid.NewGuid(), playgroundId, agent.Id), cancellationToken);
     }
 
-    private void Save()
+    private async Task SaveAsync()
     {
-        var dataToSave = _playground.GetCurrentState();
-        if (_playground.Turn == 0)
-        {
-            var historyData = new PlaygroundHistoryData
-            {
-                Id = _playground.Id,
-                States = new List<PlaygroundState> { dataToSave }
-            };
-            _playgroundHistoryDataFileRepository.AddOrUpdate(_playground.Id, historyData);
-            return;
-        }
-
-        PlaygroundHistoryData previousData = _playgroundHistoryDataFileRepository.LoadObject(_playground.Id);
-
-        previousData.States.Add(dataToSave);
-        _playgroundHistoryDataFileRepository.AddOrUpdate(_playground.Id, previousData);
+        var dataToSave = _standardPlaygroundMapper.ToState(_playground);
+        await _playgroundStateFileRepository.AddOrUpdateAsync(_playground.Id, dataToSave);
     }
 
    
     protected virtual void OnTurnEnded()
     {
         _playground.OnEndTurnActions();
-        Save();
+        //Save();
         _messageBroker.Publish(new TurnExecutedEvent(Guid.NewGuid(), _playground.Id, _playground.Turn));
     }
 
     private void ApplyAgentAction(AgentDecisionBaseResponse action)
     {
         // Find the agent
-
         var agent = _playground.Hero.Id == action.AgentId
             ? (Agent)_playground.Hero
             : _playground.Enemies.FirstOrDefault(e => e.Id == action.AgentId);

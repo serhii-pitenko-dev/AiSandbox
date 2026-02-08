@@ -2,7 +2,7 @@
 
 namespace AiSandBox.SharedBaseTypes.AiContract.Dto;
 
-public record AgentState(
+public record AgentStateForAIDecision(
     Guid PlaygroundId,
     Guid Id,
     ObjectType Type,

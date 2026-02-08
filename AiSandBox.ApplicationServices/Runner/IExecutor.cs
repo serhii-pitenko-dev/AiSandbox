@@ -4,5 +4,5 @@ namespace AiSandBox.ApplicationServices.Runner;
 
 public interface IExecutor
 {
-    Task Run();
+    Task RunAsync();
 }

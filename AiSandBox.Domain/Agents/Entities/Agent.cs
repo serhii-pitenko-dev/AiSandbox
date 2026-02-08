@@ -1,7 +1,6 @@
 ﻿using AiSandBox.Domain.Maps;
 using AiSandBox.Domain.Validation.Agents;
 using AiSandBox.SharedBaseTypes.ValueObjects;
-using System;
 using System.Text.Json.Serialization;
 
 namespace AiSandBox.Domain.Agents.Entities;
@@ -19,40 +18,30 @@ public abstract class Agent: SandboxMapBaseObject
     {
     }
 
-    [JsonInclude]
     public List<Cell> VisibleCells { get; protected set; } = new();
     public Agent(
         ObjectType cellType,
         InitialAgentCharacters characters,
-        Cell cell, 
+        Cell? cell, 
         Guid id) : base(cellType, cell, id)
     {
         Speed = characters.Speed;
         SightRange = characters.SightRange;
         MaxStamina = Stamina = characters.Stamina;
+        PathToTarget = characters.PathToTarget;
+        AvailableActions = characters.AgentActions;
+        ExecutedActions = characters.ExecutedActions;
+        IsRun = characters.isRun;
+        OrderInTurnQueue = characters.orderInTurnQueue;
     }
 
-    [JsonInclude]
     public List<Coordinates> PathToTarget { get; protected set; } = [];
-
-    [JsonInclude]
     public int Speed { get; private set; }
-
-    [JsonInclude]
     public int SightRange { get; protected set; }
-
-    [JsonInclude]
     public bool IsRun { get; protected set; } = false;
-
-    [JsonInclude]
     public int Stamina { get; protected set; }
-
-    [JsonInclude]
     public int MaxStamina { get; protected set; }
-
-    [JsonInclude]
     public int OrderInTurnQueue { get; set; } = 0;
-
     protected void CopyBaseTo(Agent target)
     {
         base.CopyTo(target);
@@ -65,7 +54,6 @@ public abstract class Agent: SandboxMapBaseObject
         target.VisibleCells = [.. VisibleCells];
         target.Transparent = Transparent;
     }
-
     public void ResetPath()
     {
         PathToTarget.Clear();

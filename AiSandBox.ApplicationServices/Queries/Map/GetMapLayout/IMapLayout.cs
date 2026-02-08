@@ -4,5 +4,5 @@ public interface IMapLayout
 {
     MapLayoutResponse GetFromMemory(Guid guid);
 
-    MapLayoutResponse GetFromFile(Guid guid);
+    Task<MapLayoutResponse> GetFromFile(Guid guid);
 }

@@ -1,9 +1,10 @@
 ﻿using AiSandBox.Ai.AgentActions;
 using AiSandBox.ApplicationServices.Commands.Playground;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
+using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
 using AiSandBox.Common.MessageBroker.Contracts.CoreServicesContract.Events;
 using AiSandBox.Domain.Playgrounds;
-using AiSandBox.Domain.State;
 using AiSandBox.Domain.Statistics.Entities;
 using AiSandBox.Infrastructure.Configuration.Preconditions;
 using AiSandBox.Infrastructure.FileManager;
@@ -17,11 +18,18 @@ namespace AiSandBox.ApplicationServices.Runner;
 public class ExecutorForPresentation : Executor, IExecutorForPresentation
 {
     public ExecutorForPresentation(
-        IPlaygroundCommandsHandleService mapCommands, 
-        IMemoryDataManager<StandardPlayground> sandboxRepository, 
-        IAiActions aiActions, 
-        IOptions<SandBoxConfiguration> configuration, IMemoryDataManager<PlayGroundStatistics> statisticsMemoryRepository, IFileDataManager<PlayGroundStatistics> statisticsFileRepository, IFileDataManager<StandardPlayground> playgroundFileRepository, IFileDataManager<PlaygroundHistoryData> playgroundHistoryDataFileRepository, IMemoryDataManager<AgentState> agentStateMemoryRepository, IMessageBroker messageBroker, IBrokerRpcClient brokerRpcClient):
-        base(mapCommands, sandboxRepository, aiActions, configuration, statisticsMemoryRepository, statisticsFileRepository, playgroundFileRepository, playgroundHistoryDataFileRepository, agentStateMemoryRepository, messageBroker, brokerRpcClient)
+        IPlaygroundCommandsHandleService mapCommands,
+        IMemoryDataManager<StandardPlayground> sandboxRepository,
+        IAiActions aiActions,
+        IOptions<SandBoxConfiguration> configuration,
+        IMemoryDataManager<PlayGroundStatistics> statisticsMemoryRepository,
+        IFileDataManager<PlayGroundStatistics> statisticsFileRepository,
+        IFileDataManager<StandardPlaygroundState> playgroundStateFileRepository,
+        IMemoryDataManager<AgentStateForAIDecision> agentStateMemoryRepository,
+        IMessageBroker messageBroker,
+        IBrokerRpcClient brokerRpcClient,
+        IStandardPlaygroundMapper standardPlaygroundMapper) :
+        base(mapCommands, sandboxRepository, aiActions, configuration, statisticsMemoryRepository, statisticsFileRepository, playgroundStateFileRepository, agentStateMemoryRepository, messageBroker, brokerRpcClient, standardPlaygroundMapper)
     {
     }
 

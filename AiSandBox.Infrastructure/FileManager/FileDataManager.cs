@@ -1,6 +1,5 @@
 using AiSandBox.Domain;
 using AiSandBox.Domain.Maps;
-using AiSandBox.Infrastructure.Configuration;
 using AiSandBox.Infrastructure.Configuration.Preconditions;
 using AiSandBox.Infrastructure.Converters;
 using Microsoft.Extensions.Options;
@@ -45,7 +44,7 @@ public class FileDataManager<T>: IFileDataManager<T>
         };
     }
 
-    public void AddOrUpdate(Guid id, T obj)
+    public async Task AddOrUpdateAsync(Guid id, T obj)
     {
         if (obj == null)
             throw new ArgumentNullException(nameof(obj));
@@ -61,17 +60,17 @@ public class FileDataManager<T>: IFileDataManager<T>
         
         string jsonContent = JsonSerializer.Serialize(obj, _jsonOptions);
         
-        File.WriteAllText(filePath, jsonContent);
+        await File.WriteAllTextAsync(filePath, jsonContent);
     }
 
-    public T LoadObject(Guid id)
+    public async Task<T> LoadObjectAsync(Guid id)
     {
         string filePath = GetFilePath(id);
 
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"Object with ID {id} not found.");
 
-        string jsonContent = File.ReadAllText(filePath);
+        string jsonContent = await File.ReadAllTextAsync(filePath);
         T? obj = JsonSerializer.Deserialize<T>(jsonContent, _jsonOptions);
 
         if (obj == null)

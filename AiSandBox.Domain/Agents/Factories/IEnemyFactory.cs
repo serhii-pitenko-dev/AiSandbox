@@ -5,6 +5,6 @@ namespace AiSandBox.Domain.Agents.Factories;
 
 public interface IEnemyFactory
 {
-    Enemy CreateEnemy(Cell cell, InitialAgentCharacters characters);
+    Enemy CreateEnemy(InitialAgentCharacters characters);
 }
 

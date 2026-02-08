@@ -6,8 +6,7 @@ namespace AiSandBox.Domain;
 
 public abstract class SandboxMapBaseObject
 {
-    [JsonInclude]
-    private Cell Cell { get; set; }
+    private Cell? Cell { get; set; }
 
     public ObjectType Type { get; protected set; }
     public Guid Id { get; private set; }
@@ -15,7 +14,6 @@ public abstract class SandboxMapBaseObject
     /// <summary>
     /// Object's coordinates on the map
     /// </summary>
-    [JsonInclude]
     public Coordinates Coordinates 
     {
         get
@@ -24,7 +22,6 @@ public abstract class SandboxMapBaseObject
         }
     }
     
-    [JsonInclude]
     public bool Transparent { get; protected set; }
 
     // Parameterless constructor for deserialization
@@ -33,7 +30,7 @@ public abstract class SandboxMapBaseObject
     }
 
     // Primary constructor
-    protected SandboxMapBaseObject(ObjectType type, Cell cell, Guid id)
+    protected SandboxMapBaseObject(ObjectType type, Cell? cell, Guid id)
     {
         Type = type;
         Cell = cell;

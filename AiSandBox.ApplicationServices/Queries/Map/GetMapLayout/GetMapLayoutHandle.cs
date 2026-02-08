@@ -7,8 +7,7 @@ namespace AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 
 public class GetMapLayoutHandle(
     IMemoryDataManager<StandardPlayground> MemoryDataManager,
-    IFileDataManager<StandardPlayground> FileDataManager,
-    IFileDataManager<MapLayoutResponse> mapLayoutDataManager) : IMapLayout
+    IFileDataManager<StandardPlayground> FileDataManager) : IMapLayout
 {
     public MapLayoutResponse GetFromMemory(Guid guid)
     {
@@ -17,9 +16,9 @@ public class GetMapLayoutHandle(
         return playground.ToMapLayout();
     }
 
-    public MapLayoutResponse GetFromFile(Guid guid)
+    public async Task<MapLayoutResponse> GetFromFile(Guid guid)
     {
-        StandardPlayground playground = FileDataManager.LoadObject(guid);
+        StandardPlayground playground = await FileDataManager.LoadObjectAsync(guid);
         MemoryDataManager.AddOrUpdate(guid, playground);
 
         return playground.ToMapLayout();

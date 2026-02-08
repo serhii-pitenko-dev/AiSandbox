@@ -1,8 +1,6 @@
 ﻿using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Maps;
 using AiSandBox.Domain.Playgrounds;
-using AiSandBox.Domain.State;
-using AiSandBox.SharedBaseTypes.ValueObjects;
 
 namespace AiSandBox.Domain.Agents.Services.Vision;
 

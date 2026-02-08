@@ -41,7 +41,7 @@ var app = builder.Build();
 if (presentationType == PresentationType.Console)
 {
     app.Services.GetRequiredService<IConsoleRunner>().Run();
-    await app.Services.GetRequiredService<IExecutorForPresentation>().Run();
+    await app.Services.GetRequiredService<IExecutorForPresentation>().RunAsync();
 }
     
 

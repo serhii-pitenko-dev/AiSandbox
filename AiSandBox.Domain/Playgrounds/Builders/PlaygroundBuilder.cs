@@ -14,6 +14,8 @@ public class PlaygroundBuilder(
 {
     private StandardPlayground? _playground;
     private int _enemyOrderCounter = 1; // Start enemy orders from 1
+    private Guid? _playgroundId;
+    private int? _turn;
 
     public StandardPlayground Playground
     {
@@ -34,6 +36,48 @@ public class PlaygroundBuilder(
     {
         Playground = new StandardPlayground(tileMap, visibilityService);
         _enemyOrderCounter = 1; // Reset counter when creating new playground
+
+        // Apply stored playground ID if set
+        if (_playgroundId.HasValue)
+        {
+            var idProperty = typeof(StandardPlayground).GetProperty(nameof(StandardPlayground.Id));
+            idProperty?.SetValue(Playground, _playgroundId.Value);
+        }
+
+        // Apply stored turn if set
+        if (_turn.HasValue)
+        {
+            var turnProperty = typeof(StandardPlayground).GetProperty(nameof(StandardPlayground.Turn));
+            turnProperty?.SetValue(Playground, _turn.Value);
+        }
+
+        return this;
+    }
+
+    public IPlaygroundBuilder SetPlaygroundId(Guid id)
+    {
+        _playgroundId = id;
+        
+        // If playground already exists, apply immediately
+        if (_playground != null)
+        {
+            var idProperty = typeof(StandardPlayground).GetProperty(nameof(StandardPlayground.Id));
+            idProperty?.SetValue(Playground, id);
+        }
+
+        return this;
+    }
+
+    public IPlaygroundBuilder SetTurn(int turn)
+    {
+        _turn = turn;
+        
+        // If playground already exists, apply immediately
+        if (_playground != null)
+        {
+            var turnProperty = typeof(StandardPlayground).GetProperty(nameof(StandardPlayground.Turn));
+            turnProperty?.SetValue(Playground, turn);
+        }
 
         return this;
     }
@@ -63,13 +107,18 @@ public class PlaygroundBuilder(
             // Check if placing a block here would create a closed area
             if (!WouldCreateClosedArea(x, y, occupiedCells))
             {
-                var cell = Playground.GetCell(x, y);
-                var block = new Block(cell, Guid.NewGuid());
-                Playground.AddBlock(block);
+                var block = new Block(Guid.NewGuid());
+                Playground.AddBlock(block, new Coordinates(x, y));
                 occupiedCells.Add((x, y));
             }
         }
 
+        return this;
+    }
+
+    public IPlaygroundBuilder PlaceBlock(Block block, Coordinates coordinates)
+    {
+        Playground.AddBlock(block, coordinates);
         return this;
     }
 
@@ -84,9 +133,14 @@ public class PlaygroundBuilder(
             y = random.Next(0, Playground.MapHeight);
         } while (IsCellOccupied(x, y));
 
-        var cell = Playground.GetCell(x, y);
-        Playground.PlaceHero(HeroFactory.CreateHero(cell, heroCharacters));
+        Playground.PlaceHero(HeroFactory.CreateHero(heroCharacters), new Coordinates(x, y));
 
+        return this;
+    }
+
+    public IPlaygroundBuilder PlaceHero(Hero hero, Coordinates coordinates)
+    {
+        Playground.PlaceHero(hero, coordinates);
         return this;
     }
 
@@ -101,9 +155,14 @@ public class PlaygroundBuilder(
             y = random.Next(0, Playground.MapHeight);
         } while (IsCellOccupied(x, y));
 
-        var cell = Playground.GetCell(x, y);
-        Playground.PlaceExit(new Exit(cell, Guid.NewGuid()));
+        Playground.PlaceExit(new Exit(Guid.NewGuid()), new Coordinates(x, y));
 
+        return this;
+    }
+
+    public IPlaygroundBuilder PlaceExit(Exit exit, Coordinates coordinates)
+    {
+        Playground.PlaceExit(exit, coordinates);
         return this;
     }
 
@@ -125,12 +184,18 @@ public class PlaygroundBuilder(
             } while (!validPosition);
 
             var cell = Playground.GetCell(x, y);
-            var enemy = EnemyFactory.CreateEnemy(cell, enemyCharacters);
+            var enemy = EnemyFactory.CreateEnemy(enemyCharacters);
             enemy.SetOrderInTurnQueue(_enemyOrderCounter++); // Assign and increment order
 
-            Playground.PlaceEnemy(enemy);
+            Playground.PlaceEnemy(enemy, new Coordinates(x, y));
         }
 
+        return this;
+    }
+
+    public IPlaygroundBuilder PlaceEnemy(Enemy enemy, Coordinates coordinates)
+    {
+        Playground.PlaceEnemy(enemy, coordinates);
         return this;
     }
 

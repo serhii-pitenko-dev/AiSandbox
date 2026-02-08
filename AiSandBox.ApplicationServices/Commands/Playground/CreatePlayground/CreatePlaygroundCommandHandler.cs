@@ -1,7 +1,6 @@
 ﻿using AiSandBox.Domain.Agents.Entities;
 using AiSandBox.Domain.Playgrounds;
 using AiSandBox.Domain.Playgrounds.Factories;
-using AiSandBox.Domain.State;
 using AiSandBox.Infrastructure.MemoryManager;
 using AiSandBox.SharedBaseTypes.ValueObjects;
 
@@ -9,8 +8,7 @@ namespace AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
 
 public class CreatePlaygroundCommandHandler(
     IPlaygroundFactory playgroundFactory,
-    IMemoryDataManager<StandardPlayground> playgroundMemoryDataManager,
-    IMemoryDataManager<InitialPreconditions> initialPreconditionsMemoryDataManager) : ICreatePlaygroundCommandHandler
+    IMemoryDataManager<StandardPlayground> playgroundMemoryDataManager) : ICreatePlaygroundCommandHandler
 {
     public Guid Handle(CreatePlaygroundCommandParameters commandParameters)
     {
@@ -18,13 +16,19 @@ public class CreatePlaygroundCommandHandler(
         {
             MapType.Standard => playgroundFactory.CreateStandard(
                             new InitialAgentCharacters(
-                                speed: commandParameters.HeroConfiguration.Speed,
-                                sightRange: commandParameters.HeroConfiguration.SightRange,
-                                stamina: commandParameters.HeroConfiguration.Stamina),
+                                commandParameters.HeroConfiguration.Speed,
+                                commandParameters.HeroConfiguration.SightRange,
+                                commandParameters.HeroConfiguration.Stamina,
+                                new List<Coordinates>(),
+                                new List<AgentAction>(),
+                                new List<AgentAction>()),
                             new InitialAgentCharacters(
-                                speed: commandParameters.EnemyConfiguration.Speed,
-                                sightRange: commandParameters.EnemyConfiguration.SightRange,
-                                stamina: commandParameters.EnemyConfiguration.Stamina),
+                                commandParameters.EnemyConfiguration.Speed,
+                                commandParameters.EnemyConfiguration.SightRange,
+                                commandParameters.EnemyConfiguration.Stamina,
+                                new List<Coordinates>(),
+                                new List<AgentAction>(),
+                                new List<AgentAction>()),
                             commandParameters.MapConfiguration.Size.Height,
                             commandParameters.MapConfiguration.Size.Width,
                             commandParameters.MapConfiguration.ElementsPercentages.BlocksPercent,
@@ -34,18 +38,6 @@ public class CreatePlaygroundCommandHandler(
 
         Guid playgroundId = playground.Id;
         playgroundMemoryDataManager.AddOrUpdate(playgroundId, playground);
-
-        initialPreconditionsMemoryDataManager.AddOrUpdate(
-            playgroundId,
-            new InitialPreconditions(
-                playgroundId,
-                playground.MapHeight,
-                playground.MapHeight,
-                playground.MapHeight,
-                commandParameters.MapConfiguration.ElementsPercentages.BlocksPercent,
-                commandParameters.MapConfiguration.ElementsPercentages.PercentOfEnemies,
-                playground.Blocks.Count,
-                playground.Enemies.Count));
 
         return playgroundId;   
     }
