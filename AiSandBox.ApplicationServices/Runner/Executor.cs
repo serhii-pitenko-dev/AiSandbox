@@ -94,9 +94,10 @@ public abstract class Executor: IExecutor
 
         // Let all agents look around initially
         _playground.LookAroundEveryone();
+        await SaveAsync();
 
         // Notify everyone that the simulation has started
-       var result = 
+        var result = 
             await _brokerRpcClient.RequestAsync<GameStartedEvent, AiReadyToActionsResponse>(new GameStartedEvent(Guid.NewGuid(), _playground.Id));
 
         CancellationToken cancellationToken = new CancellationToken();
@@ -114,7 +115,6 @@ public abstract class Executor: IExecutor
 
     protected async Task StartSimulationAsync(CancellationToken cancellationToken)
     {
-        await SaveAsync();
         while (sandboxStatus == SandboxStatus.InProgress)
         {
             if (_playground.Turn >= _configuration.MaxTurns)

@@ -85,14 +85,13 @@ public class ConsoleRunner : IConsoleRunner
     private void OnGameStarted(GameStartedEvent message)
     {
         _playgroundId = message.PlaygroundId;
+        _standardPlaygroundState = _playgroundStateFileRepository.LoadObjectAsync(_playgroundId).Result;
         RenderInitialGameInfo();
 
         // Render the full map at game beginning
         _fullMapLayout = _mapQueries.MapLayoutQuery.GetFromMemory(_playgroundId);
         _mapWidth = _fullMapLayout.Cells.GetLength(0);
         _mapHeight = _fullMapLayout.Cells.GetLength(1);
-
-        _standardPlaygroundState = _playgroundStateFileRepository.LoadObjectAsync(_playgroundId).Result;
 
         RenderFullMap(_fullMapLayout);
     }
