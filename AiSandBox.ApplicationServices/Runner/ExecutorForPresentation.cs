@@ -1,7 +1,7 @@
 ﻿using AiSandBox.Ai.AgentActions;
 using AiSandBox.ApplicationServices.Commands.Playground;
-using AiSandBox.ApplicationServices.Runner.Logs;
-using AiSandBox.ApplicationServices.Runner.Logs.Performance;
+using AiSandBox.ApplicationServices.Runner.LogsDto;
+using AiSandBox.ApplicationServices.Runner.LogsDto.Performance;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
