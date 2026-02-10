@@ -168,6 +168,12 @@ public abstract class Agent: SandboxMapBaseObject
         UpdateActionsListOnExecute(AgentAction.Move);
     }
 
+    public void ActionFailed(AgentAction action)
+    {
+        AvailableActions.Remove(action);
+        ExecutedActions.Add(action);
+    }
+
     protected void UpdateActionsListOnExecute(AgentAction action)
     {
         AvailableActions.Remove(action);

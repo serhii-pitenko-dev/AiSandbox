@@ -159,7 +159,7 @@ public abstract class Executor : IExecutor
             sandboxExecutionPerformance.TurnPerformances[_playground.Turn].Finish = DateTime.UtcNow;
              await _turnExecutionPerformanceFileRepository.SaveOrAppendAsync(_playground.Id, sandboxExecutionPerformance.TurnPerformances[_playground.Turn]);
 #endif
-
+            OnTurnEnded();
         }
     }
 
@@ -170,14 +170,16 @@ public abstract class Executor : IExecutor
         while (_agentsToAct.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
         {
             var agent = _agentsToAct[0];
-
-
             _playground.PrepareAgentForTurnActions(agent);
+
+#if PERFORMANCE_ANALYSIS
+            sandboxExecutionPerformance.TurnPerformances[_playground.Turn].ActionPerformances[agent.Id] = new List<ActionExecutionPerformance>();
+#endif
+
             while (agent.AvailableActions.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
             {
 
 #if PERFORMANCE_ANALYSIS
-
                 var actionPerformance = new ActionExecutionPerformance
                 {
                     Start = DateTime.UtcNow,
@@ -194,7 +196,6 @@ public abstract class Executor : IExecutor
                 actionPerformance.Action = agentDecision.ActionType;
                 sandboxExecutionPerformance.TurnPerformances[_playground.Turn]
                     .ActionPerformances[agent.Id].Add(actionPerformance);
-
 #endif
 
             }
@@ -280,9 +281,12 @@ public abstract class Executor : IExecutor
 
                 break;
 
-            case AgentDecisionUseAbilityResponse abilityEvent when abilityEvent.IsSuccess:
+            case AgentDecisionUseAbilityResponse abilityEvent:
                 // Apply ability activation/deactivation
-                agent.DoAction(abilityEvent.ActionType, abilityEvent.IsActivated);
+                if (abilityEvent.IsSuccess)
+                    agent.DoAction(abilityEvent.ActionType, abilityEvent.IsActivated);
+                else
+                    agent.ActionFailed(abilityEvent.ActionType);
 
 #if CONSOLE_PRESENTATION_DEBUG
                 SendAgentToggleActionNotification(abilityEvent.ActionType, _playground.Id, agent.Id, abilityEvent.IsActivated, GetAgentSnapshot(agent));
