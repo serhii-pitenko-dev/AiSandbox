@@ -178,22 +178,22 @@ public abstract class Executor : IExecutor
 
 #if PERFORMANCE_ANALYSIS
 
-                sandboxExecutionPerformance.TurnPerformances[_playground.Turn]
-                    .ActionPerformances[agent.Id] = new ActionExecutionPerformance
-                    {
-                        Start = DateTime.UtcNow,
-                        ObjectType = agent.Type,
-                    };
+                var actionPerformance = new ActionExecutionPerformance
+                {
+                    Start = DateTime.UtcNow,
+                    ObjectType = agent.Type
+
+                };
 #endif
 
                 AgentDecisionBaseResponse agentDecision = await SendAgentActionRequestAsync(agent, _playground.Id, cancellationToken);
                 ApplyAgentAction(agentDecision);
 
 #if PERFORMANCE_ANALYSIS
+                actionPerformance.Finish = DateTime.UtcNow;
+                actionPerformance.Action = agentDecision.ActionType;
                 sandboxExecutionPerformance.TurnPerformances[_playground.Turn]
-                    .ActionPerformances[agent.Id].Finish = DateTime.UtcNow;
-                sandboxExecutionPerformance.TurnPerformances[_playground.Turn]
-                    .ActionPerformances[agent.Id].Action = agentDecision.ActionType;
+                    .ActionPerformances[agent.Id].Add(actionPerformance);
 
 #endif
 
@@ -277,14 +277,17 @@ public abstract class Executor : IExecutor
 #if CONSOLE_PRESENTATION_DEBUG
                 SendAgentMoveNotification(moveEvent.Id, _playground.Id, agent.Id, moveEvent.From, moveEvent.To, isSuccess, GetAgentSnapshot(agent));
 #endif
+
                 break;
 
             case AgentDecisionUseAbilityResponse abilityEvent when abilityEvent.IsSuccess:
                 // Apply ability activation/deactivation
                 agent.DoAction(abilityEvent.ActionType, abilityEvent.IsActivated);
+
 #if CONSOLE_PRESENTATION_DEBUG
                 SendAgentToggleActionNotification(abilityEvent.ActionType, _playground.Id, agent.Id, abilityEvent.IsActivated, GetAgentSnapshot(agent));
 #endif
+
                 break;
         }
     }
