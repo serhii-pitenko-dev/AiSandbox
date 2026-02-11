@@ -4,5 +4,7 @@ namespace AiSandBox.ApplicationServices.Runner;
 
 public interface IExecutor
 {
-    Task RunAsync();
+    Task TestRunWithPreconditionsAsync();
+
+    Task RunAsync(Guid sandboxId = default);
 }

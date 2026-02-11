@@ -6,6 +6,7 @@ using AiSandBox.ApplicationServices.Queries.Maps.GetMapLayout;
 using AiSandBox.ApplicationServices.Runner;
 using AiSandBox.ApplicationServices.Runner.LogsDto;
 using AiSandBox.ApplicationServices.Runner.LogsDto.Performance;
+using AiSandBox.ApplicationServices.Runner.TestPreconditionSet;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Infrastructure.FileManager;
@@ -20,6 +21,7 @@ public static class ApplicationServicesCollectionExtensions
         // Map Commands
         services.AddScoped<ICreatePlaygroundCommandHandler, CreatePlaygroundCommandHandler>();
         services.AddScoped<IPlaygroundCommandsHandleService, PlaygroundCommandsHandleService>();
+
 
         // Map Queries
         services.AddScoped<IMapQueriesHandleService, MapQueriesHandleService>();
@@ -43,6 +45,8 @@ public static class ApplicationServicesCollectionExtensions
         services.AddSingleton<IStandardPlaygroundMapper, StandardPlaygroundMapper>();
 
         services.AddScoped<IExecutorForPresentation, ExecutorForPresentation>();
+
+        services.AddSingleton<ITestPreconditionData, TestPreconditionData>();
 
         return services;
     }

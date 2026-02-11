@@ -16,6 +16,7 @@ public abstract class Agent: SandboxMapBaseObject
     // Parameterless constructor for deserialization
     protected Agent() : base()
     {
+        Transparent = true; // Agents are transparent - they don't block vision
     }
 
     public List<Cell> VisibleCells { get; protected set; } = new();
@@ -33,6 +34,7 @@ public abstract class Agent: SandboxMapBaseObject
         ExecutedActions = characters.ExecutedActions;
         IsRun = characters.isRun;
         OrderInTurnQueue = characters.orderInTurnQueue;
+        Transparent = true; // Agents are transparent - they don't block vision
     }
 
     public List<Coordinates> PathToTarget { get; protected set; } = [];

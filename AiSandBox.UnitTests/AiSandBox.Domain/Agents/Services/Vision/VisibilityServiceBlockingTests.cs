@@ -154,7 +154,7 @@ public class VisibilityServiceBlockingTests : VisibilityServiceTestBase
     }
 
     [TestMethod]
-    public void UpdateVisibleCells_EnemyBlocking_BlocksCellsBehind()
+    public void UpdateVisibleCells_EnemyDoesNotBlock_AgentSeesThrough()
     {
         // Arrange
         var playground = CreatePlayground();
@@ -174,11 +174,11 @@ public class VisibilityServiceBlockingTests : VisibilityServiceTestBase
         Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 5),
             "Hero should see the enemy at (10, 15)");
 
-        // Hero cannot see cells directly behind the enemy
-        Assert.IsFalse(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 6),
-            "Hero should NOT see (10, 16) behind enemy");
-        Assert.IsFalse(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 8),
-            "Hero should NOT see (10, 18) behind enemy");
+        // Hero CAN see cells behind the enemy (agents are transparent)
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 6),
+            "Hero SHOULD see (10, 16) behind enemy - agents don't block vision");
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 8),
+            "Hero SHOULD see (10, 18) behind enemy - agents don't block vision");
     }
 
     [TestMethod]
@@ -269,5 +269,42 @@ public class VisibilityServiceBlockingTests : VisibilityServiceTestBase
         int expectedMaxCells = (ringRadius * 2 + 1) * (ringRadius * 2 + 1);
         Assert.IsTrue(hero.VisibleCells.Count <= expectedMaxCells,
             $"Hero should see at most {expectedMaxCells} cells (inside + ring)");
+    }
+
+    [TestMethod]
+    public void UpdateVisibleCells_MultipleAgentsInLine_AllAreVisible()
+    {
+        // Arrange
+        var playground = CreatePlayground();
+        var hero = CreateHero();
+        playground.PlaceHero(hero, new Coordinates(HeroX, HeroY));
+
+        // Place multiple enemies in a line (north of hero)
+        var enemy1 = CreateEnemy();
+        var enemy2 = CreateEnemy();
+        var enemy3 = CreateEnemy();
+        playground.PlaceEnemy(enemy1, new Coordinates(HeroX, HeroY + 2));
+        playground.PlaceEnemy(enemy2, new Coordinates(HeroX, HeroY + 4));
+        playground.PlaceEnemy(enemy3, new Coordinates(HeroX, HeroY + 6));
+
+        // Act
+        playground.UpdateAgentVision(hero);
+
+        // Assert
+        Assert.IsNotNull(hero.VisibleCells);
+
+        // Hero can see all enemies (they don't block each other)
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 2),
+            "Hero should see first enemy");
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 4),
+            "Hero should see second enemy (not blocked by first)");
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 6),
+            "Hero should see third enemy (not blocked by others)");
+
+        // Hero can see cells behind all enemies
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 7),
+            "Hero should see cell behind all enemies");
+        Assert.IsTrue(hero.VisibleCells.Any(c => c.Coordinates.X == HeroX && c.Coordinates.Y == HeroY + 9),
+            "Hero should see cell at max range behind enemies");
     }
 }

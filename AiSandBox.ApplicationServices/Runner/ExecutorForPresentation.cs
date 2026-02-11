@@ -2,6 +2,7 @@
 using AiSandBox.ApplicationServices.Commands.Playground;
 using AiSandBox.ApplicationServices.Runner.LogsDto;
 using AiSandBox.ApplicationServices.Runner.LogsDto.Performance;
+using AiSandBox.ApplicationServices.Runner.TestPreconditionSet;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
@@ -33,12 +34,14 @@ public class ExecutorForPresentation : Executor, IExecutorForPresentation
         IStandardPlaygroundMapper standardPlaygroundMapper,
         IFileDataManager<RawDataLog> rawDataLogFileRepository,
         IFileDataManager<TurnExecutionPerformance> turnExecutionPerformanceFileRepository,
-        IFileDataManager<SandboxExecutionPerformance> sandboxExecutionPerformanceFileRepository) :
+        IFileDataManager<SandboxExecutionPerformance> sandboxExecutionPerformanceFileRepository,
+        ITestPreconditionData testPreconditionData) :
         base(mapCommands, sandboxRepository, aiActions, 
              configuration, statisticsMemoryRepository, statisticsFileRepository, 
              playgroundStateFileRepository, agentStateMemoryRepository, messageBroker, 
              brokerRpcClient, standardPlaygroundMapper, rawDataLogFileRepository,
-             turnExecutionPerformanceFileRepository, sandboxExecutionPerformanceFileRepository)
+             turnExecutionPerformanceFileRepository, sandboxExecutionPerformanceFileRepository, 
+             testPreconditionData)
     {
     }
 

@@ -3,6 +3,7 @@ using AiSandBox.ApplicationServices.Commands.Playground;
 using AiSandBox.ApplicationServices.Commands.Playground.CreatePlayground;
 using AiSandBox.ApplicationServices.Runner.LogsDto;
 using AiSandBox.ApplicationServices.Runner.LogsDto.Performance;
+using AiSandBox.ApplicationServices.Runner.TestPreconditionSet;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
 using AiSandBox.Common.MessageBroker;
@@ -46,6 +47,7 @@ public abstract class Executor : IExecutor
     protected IFileDataManager<RawDataLog> _rawDataLogFileRepository;
     protected IFileDataManager<TurnExecutionPerformance> _turnExecutionPerformanceFileRepository;
     protected IFileDataManager<SandboxExecutionPerformance> _sandboxExecutionPerformanceFileRepository;
+    protected ITestPreconditionData _testPreconditionData;
 
     private SandboxStatus sandboxStatus;
     private SandboxExecutionPerformance sandboxExecutionPerformance;
@@ -65,7 +67,8 @@ public abstract class Executor : IExecutor
         IStandardPlaygroundMapper standardPlaygroundMapper,
         IFileDataManager<RawDataLog> rawDataLogFileRepository,
         IFileDataManager<TurnExecutionPerformance> turnExecutionPerformanceFileRepository,
-        IFileDataManager<SandboxExecutionPerformance> sandboxExecutionPerformanceFileRepository)
+        IFileDataManager<SandboxExecutionPerformance> sandboxExecutionPerformanceFileRepository,
+        ITestPreconditionData testPreconditionData)
     {
         _playgroundCommands = mapCommands;
         _playgroundRepository = sandboxRepository;
@@ -79,9 +82,16 @@ public abstract class Executor : IExecutor
         _rawDataLogFileRepository = rawDataLogFileRepository;
         _turnExecutionPerformanceFileRepository = turnExecutionPerformanceFileRepository;
         _sandboxExecutionPerformanceFileRepository = sandboxExecutionPerformanceFileRepository;
+        _testPreconditionData = testPreconditionData;   
     }
 
-    public async Task RunAsync()
+    public async Task TestRunWithPreconditionsAsync()
+    {
+        var sandboxId = _testPreconditionData.CreatePlaygroundWithPreconditions();
+        await RunAsync(sandboxId);
+    }
+
+    public async Task RunAsync(Guid sandboxId = default)
     {
 
 #if PERFORMANCE_ANALYSIS
@@ -92,11 +102,14 @@ public abstract class Executor : IExecutor
 #endif
 
         // Create standard map/sandbox and save it
-        var sandboxId = _playgroundCommands.CreatePlaygroundCommand.Handle(new CreatePlaygroundCommandParameters(
-            _configuration.MapSettings,
-            _configuration.Hero,
-            _configuration.Enemy
-        ));
+        if (sandboxId == default)
+        {
+            sandboxId = _playgroundCommands.CreatePlaygroundCommand.Handle(new CreatePlaygroundCommandParameters(
+                _configuration.MapSettings,
+                _configuration.Hero,
+                _configuration.Enemy
+            ));
+        }
 
         // Load the created sandbox
         _playground = _playgroundRepository.LoadObject(sandboxId);
@@ -112,10 +125,10 @@ public abstract class Executor : IExecutor
     {
         // Initialize AI modulef
         _aiActions.Initialize();
-
-        // Let all agents look around initially
-        _playground.LookAroundEveryone();
         await SaveAsync();
+
+        //Before starting the simulation, let all agents look around to have initial visible cells data in the repository for AI decision making
+        _playground.LookAroundEveryone();
 
         // Notify everyone that the simulation has started
         var result =
@@ -152,7 +165,6 @@ public abstract class Executor : IExecutor
                     Start = DateTime.UtcNow,
                 };
 #endif
-
             await ExecuteTurnAsync(cancellationToken);
 
 #if PERFORMANCE_ANALYSIS
@@ -165,6 +177,9 @@ public abstract class Executor : IExecutor
 
     private async Task ExecuteTurnAsync(CancellationToken cancellationToken)
     {
+        // Let all agents look around initially
+        _playground.LookAroundEveryone();
+
         _agentsToAct = _playground.GetOrderedAgentsForTurn();
 
         while (_agentsToAct.Count > 0 && sandboxStatus == SandboxStatus.InProgress)
