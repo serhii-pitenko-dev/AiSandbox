@@ -10,6 +10,7 @@ using AiSandBox.ApplicationServices.Runner.LogsDto.Performance;
 using AiSandBox.ApplicationServices.Runner.TestPreconditionSet;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.Mappers;
 using AiSandBox.ApplicationServices.Saver.Persistence.Sandbox.States;
+using AiSandBox.Domain.Statistics.Result;
 using AiSandBox.Infrastructure.FileManager;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,6 +33,7 @@ public static class ApplicationServicesCollectionExtensions
         services.AddSingleton<IFileDataManager<MapLayoutResponse>, FileDataManager<MapLayoutResponse>>();
         services.AddSingleton<IFileDataManager<StandardPlaygroundState>, FileDataManager<StandardPlaygroundState>>();
         services.AddSingleton<IFileDataManager<RawDataLog>, FileDataManager<RawDataLog>>();
+        services.AddSingleton<IFileDataManager<GeneralBatchRunInformation>, FileDataManager<GeneralBatchRunInformation>>();
 
         #if PERFORMANCE_ANALYSIS
             #if PERFORMANCE_DETAILED_ANALYSIS

@@ -44,6 +44,30 @@ public class FileDataManager<T>: IFileDataManager<T>
         };
     }
 
+    public async Task AppendObjectAsync(Guid id, object obj)
+    {
+        if (obj == null)
+            throw new ArgumentNullException(nameof(obj));
+
+        string filePath = GetFilePath(id);
+
+        string? directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var wrapper = new
+        {
+            Type = obj.GetType().Name,
+            Timestamp = DateTime.UtcNow,
+            Data = obj
+        };
+
+        string jsonContent = JsonSerializer.Serialize(wrapper, _jsonOptions) + Environment.NewLine;
+        await File.AppendAllTextAsync(filePath, jsonContent);
+    }
+
     public async Task SaveOrAppendAsync(Guid id, T obj)
     {
         if (obj == null)

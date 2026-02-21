@@ -13,12 +13,12 @@ using AiSandBox.SharedBaseTypes.ValueObjects.StartupSettings;
 using AiSandBox.Startup.Configuration;
 using AiSandBox.Startup.Menu;
 using AiSandBox.Startup.Runners;
-using AiSandBox.WebApi.Configuration;
+using AiSandBox.Domain.Statistics.Result;
+using AiSandBox.Infrastructure.FileManager;
 using AiSandBox.ConsolePresentation;
-using Microsoft.AspNetCore.Builder;
+using AiSandBox.WebApi.Configuration;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+
 
 // ── 1. Read default settings ─────────────────────────────────────────────────
 var builder = WebApplication.CreateBuilder(args);
@@ -75,7 +75,6 @@ if (isTraining)
 if (isConsole)
 {
     builder.Services.AddConsolePresentationServices(builder.Configuration, builder.Configuration);
-    builder.Configuration.AddJsonFile("Settings.json", optional: true, reloadOnChange: true);
 }
 
 if (isWebEnabled)
@@ -120,7 +119,8 @@ try
         {
             using var scope = app.Services.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IExecutorForPresentation>();
-            await new RunSimulations().RunSingleAsync(executor);
+            var batchFileManager = scope.ServiceProvider.GetRequiredService<IFileDataManager<GeneralBatchRunInformation>>();
+            await new RunSimulations(batchFileManager).RunSingleAsync(executor);
             break;
         }
 
@@ -129,7 +129,8 @@ try
         {
             using var scope = app.Services.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IExecutorForPresentation>();
-            await new RunSimulations().RunManyAsync(executor, startupSettings.SimulationCount);
+            var batchFileManager = scope.ServiceProvider.GetRequiredService<IFileDataManager<GeneralBatchRunInformation>>();
+            await new RunSimulations(batchFileManager).RunManyAsync(executor, startupSettings.SimulationCount);
             break;
         }
 
@@ -138,7 +139,8 @@ try
         {
             using var scope = app.Services.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IExecutorForPresentation>();
-            await new RunSimulations().RunTestPreconditionsAsync(executor);
+            var batchFileManager = scope.ServiceProvider.GetRequiredService<IFileDataManager<GeneralBatchRunInformation>>();
+            await new RunSimulations(batchFileManager).RunTestPreconditionsAsync(executor);
             break;
         }
 

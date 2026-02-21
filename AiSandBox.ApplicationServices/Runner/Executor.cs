@@ -50,6 +50,7 @@ public abstract class Executor: IExecutor
     protected ITestPreconditionData _testPreconditionData;
 
     private SandboxStatus sandboxStatus;
+    protected SandboxStatus SandboxStatus => sandboxStatus;
     private SandboxExecutionPerformance sandboxExecutionPerformance;
 
 
@@ -82,7 +83,7 @@ public abstract class Executor: IExecutor
         _rawDataLogFileRepository = rawDataLogFileRepository;
         _turnExecutionPerformanceFileRepository = turnExecutionPerformanceFileRepository;
         _sandboxExecutionPerformanceFileRepository = sandboxExecutionPerformanceFileRepository;
-        _testPreconditionData = testPreconditionData;   
+        _testPreconditionData = testPreconditionData;
     }
 
     public async Task TestRunWithPreconditionsAsync()
@@ -91,7 +92,7 @@ public abstract class Executor: IExecutor
         await RunAsync(sandboxId);
     }
 
-    public async Task RunAsync(Guid sandboxId = default)
+    public virtual async Task RunAsync(Guid sandboxId = default)
     {
 
 #if PERFORMANCE_ANALYSIS
@@ -398,5 +399,34 @@ public abstract class Executor: IExecutor
     {
         await _rawDataLogFileRepository.SaveOrAppendAsync(
                Guid.NewGuid(), new RawDataLog(Guid.NewGuid(), logMessage, DateTime.UtcNow));
+    }
+
+    /// <summary>
+    /// Subscribes to win/loss events, runs one simulation, unsubscribes, and returns the outcome.
+    /// Subclasses use this to build a <see cref="AiSandBox.Domain.Statistics.Result.SandboxRunResult"/>
+    /// without the base class needing any awareness of batch or result types.
+    /// </summary>
+    protected async Task<(WinReason? WinReason, LostReason? LostReason)> RunAndCaptureOutcomeAsync()
+    {
+        WinReason? winReason = null;
+        LostReason? lostReason = null;
+
+        void OnWon(HeroWonEvent e) { winReason = e.WinReason; }
+        void OnLost(HeroLostEvent e) { lostReason = e.LostReason; }
+
+        _messageBroker.Subscribe<HeroWonEvent>(OnWon);
+        _messageBroker.Subscribe<HeroLostEvent>(OnLost);
+
+        try
+        {
+            await RunAsync();
+        }
+        finally
+        {
+            _messageBroker.Unsubscribe<HeroWonEvent>(OnWon);
+            _messageBroker.Unsubscribe<HeroLostEvent>(OnLost);
+        }
+
+        return (winReason, lostReason);
     }
 }
