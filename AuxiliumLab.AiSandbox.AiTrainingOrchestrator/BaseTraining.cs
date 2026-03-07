@@ -30,5 +30,5 @@ public abstract class BaseTraining
     }
 
     public string GetModelSavePath(string experimentId)
-        => Path.Combine("E:/FILE_STORAGE/TRAINED_ALGORITHMS", AlgorithmType.ToString(), experimentId);
+        => Path.Combine("D:/FILE_STORAGE/TRAINED_ALGORITHMS", AlgorithmType.ToString(), experimentId);
 }

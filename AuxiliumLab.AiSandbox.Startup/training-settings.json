@@ -12,7 +12,7 @@
       {
         "Algorithm": "PPO",
         "Parameters": [
-          { "Name": "total_timesteps", "Value": "1000000"   },
+          { "Name": "total_timesteps", "Value": "100000"   },
           { "Name": "n_envs",          "Value": "4"      },
           { "Name": "learning_rate",   "Value": "0.0003" },
           { "Name": "n_steps",         "Value": "256"    },
@@ -28,7 +28,7 @@
       {
         "Algorithm": "A2C",
         "Parameters": [
-          { "Name": "total_timesteps", "Value": "1000000"   },
+          { "Name": "total_timesteps", "Value": "100000"   },
           { "Name": "n_envs",          "Value": "4"      },
           { "Name": "learning_rate",   "Value": "0.0007" },
           { "Name": "n_steps",         "Value": "5"      },
@@ -43,7 +43,7 @@
       {
         "Algorithm": "DQN",
         "Parameters": [
-          { "Name": "total_timesteps",        "Value": "1000000"   },
+          { "Name": "total_timesteps",        "Value": "100000"   },
           { "Name": "learning_rate",          "Value": "0.0001" },
           { "Name": "buffer_size",            "Value": "10000"  },
           { "Name": "learning_starts",        "Value": "1000"   },

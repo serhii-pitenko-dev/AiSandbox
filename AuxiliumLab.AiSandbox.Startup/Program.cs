@@ -53,6 +53,45 @@ AggregationSettings aggregationSettings =
 
 ModelType? selectedAlgorithm = null;
 
+// Ensure file storage folders exist (create base and subfolders if missing).
+var fileSourceCfg = configuration
+    .GetSection(FileSourceConfiguration.SectionName)
+    .Get<FileSourceConfiguration>() ?? new FileSourceConfiguration();
+
+var basePath = fileSourceCfg.FileStorage?.BasePath ?? string.Empty;
+if (string.IsNullOrWhiteSpace(basePath))
+{
+    Console.WriteLine("[WARNING] FileSource.FileStorage.BasePath is empty; skipping creation of storage folders.");
+}
+else
+{
+    // Verify the drive/root exists; if not, fail fast as requested.
+    var root = Path.GetPathRoot(basePath) ?? string.Empty;
+    if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        throw new DirectoryNotFoundException($"Drive or root '{root}' for FileSource.FileStorage.BasePath '{basePath}' does not exist.");
+
+    var folders = new[]
+    {
+        basePath,
+        Path.Combine(basePath, fileSourceCfg.FileStorage.TrainedAlgorithms),
+        Path.Combine(basePath, fileSourceCfg.FileStorage.PrecreatedPlaygrounds),
+        Path.Combine(basePath, fileSourceCfg.FileStorage.SavedSimulations),
+    };
+
+    foreach (var folder in folders)
+    {
+        try
+        {
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WARNING] Could not create directory '{folder}': {ex.Message}");
+        }
+    }
+}
+
 // ── 2. Interactive menu (unless this is a precondition-driven run) ────────────
 if (!startupSettings.IsPreconditionStart)
 {
@@ -100,6 +139,15 @@ else
         .ConfigureServices((ctx, services) =>
         {
             RegisterCoreServices(services, ctx.Configuration, startupSettings.ExecutionMode);
+
+            // Register TrainingSettings for AggregationRun even when Training step is absent
+            // (AggregationRunner always takes it as a constructor parameter).
+            if (startupSettings.ExecutionMode == ExecutionMode.AggregationRun)
+            {
+                var ts = ctx.Configuration.GetSection("TrainingSettings").Get<TrainingSettings>();
+                if (ts is not null)
+                    services.AddSingleton(ts);
+            }
 
             // For trained simulation modes, override IAiActions with InferenceActions
             // which calls the Python Act RPC with the pre-trained model path.

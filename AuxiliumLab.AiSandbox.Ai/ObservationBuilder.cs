@@ -63,11 +63,11 @@ public static class ObservationBuilder
         return action switch
         {
             0 => new AgentDecisionMoveResponse(Guid.NewGuid(), agentId,
-                     from, new Coordinates(from.X, Math.Max(0, from.Y - 1)), correlationId, true),
+                     from, new Coordinates(from.X, from.Y - 1), correlationId, true),
             1 => new AgentDecisionMoveResponse(Guid.NewGuid(), agentId,
                      from, new Coordinates(from.X, from.Y + 1), correlationId, true),
             2 => new AgentDecisionMoveResponse(Guid.NewGuid(), agentId,
-                     from, new Coordinates(Math.Max(0, from.X - 1), from.Y), correlationId, true),
+                     from, new Coordinates(from.X - 1, from.Y), correlationId, true),
             3 => new AgentDecisionMoveResponse(Guid.NewGuid(), agentId,
                      from, new Coordinates(from.X + 1, from.Y), correlationId, true),
             _ => new AgentDecisionUseAbilityResponse(Guid.NewGuid(), agentId,

@@ -161,19 +161,38 @@ public abstract class Agent: SandboxMapBaseObject
     }
 
     /// <summary>
-    /// If agent moved, update its path and executed actions
+    /// If agent moved, update its path and executed actions.
+    /// If Move is not in AvailableActions (e.g. only Run remains because RL returned a Move
+    /// action out-of-order), consume whatever action is first to prevent an infinite loop.
     /// </summary>
     public void AgentWasMoved(Coordinates coordinates)
     {
         Stamina--;
         PathToTarget.Add(coordinates);
 
-        UpdateActionsListOnExecute(AgentAction.Move);
+        if (AvailableActions.Contains(AgentAction.Move))
+        {
+            UpdateActionsListOnExecute(AgentAction.Move);
+        }
+        else if (AvailableActions.Count > 0)
+        {
+            var fallback = AvailableActions[0];
+            AvailableActions.RemoveAt(0);
+            ExecutedActions.Add(fallback);
+        }
     }
 
     public void ActionFailed(AgentAction action)
     {
-        AvailableActions.Remove(action);
+        if (!AvailableActions.Remove(action) && AvailableActions.Count > 0)
+        {
+            // Fallback: consume the first available action to prevent an infinite loop
+            // when the RL model returns a mismatched action type (e.g. Move when only Run remains).
+            var fallback = AvailableActions[0];
+            AvailableActions.RemoveAt(0);
+            ExecutedActions.Add(fallback);
+            return;
+        }
         ExecutedActions.Add(action);
     }
 

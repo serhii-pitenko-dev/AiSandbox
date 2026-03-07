@@ -2,10 +2,6 @@
   "AggregationSettings": {
     "Steps": [
       {
-        "Name": "Training",
-        "Mode": "Training"
-      },
-      {
         "Name": "Random AI",
         "Mode": "MassRandomAISimulation"
       },

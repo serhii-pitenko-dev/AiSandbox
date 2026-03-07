@@ -75,12 +75,27 @@ public sealed class InferenceActions : IAiActions
         var request = new ActRequest { RunId = _modelPath };
         request.Observation.AddRange(obs);
 
-        // The Python gRPC service runs on localhost; round-trip latency is sub-ms
-        // so blocking synchronously here is acceptable.
-        var actResponse = _policyTrainerClient.ActAsync(request).GetAwaiter().GetResult();
-        int action      = actResponse.Success ? actResponse.Action : 0;
+        // Fire-and-forget: await the gRPC call asynchronously (same pattern as Sb3Actions)
+        // so the message-broker thread is never blocked, avoiding thread-pool starvation.
+        var cmdId    = cmd.Id;
+        var agentId  = cmd.AgentId;
+        var agentPos = agent.Coordinates;
 
-        var response = ObservationBuilder.BuildDecisionResponse(cmd.Id, cmd.AgentId, agent.Coordinates, action);
-        _messageBroker.Publish(response);
+        _ = Task.Run(async () =>
+        {
+            int action = 0;
+            try
+            {
+                var actResponse = await _policyTrainerClient.ActAsync(request).ConfigureAwait(false);
+                action = actResponse.Success ? actResponse.Action : 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[InferenceActions] gRPC ActAsync failed: {ex.Message}");
+            }
+
+            var response = ObservationBuilder.BuildDecisionResponse(cmdId, agentId, agentPos, action);
+            _messageBroker.Publish(response);
+        });
     }
 }
